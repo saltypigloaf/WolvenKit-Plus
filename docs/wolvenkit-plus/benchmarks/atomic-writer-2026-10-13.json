@@ -1,0 +1,619 @@
+{
+  "RunEnvironment": {
+    "CapturedAtUtc": "2026-10-13T13:25:35.4962632-04:00",
+    "Repository": "C:\\workspace\\WolvenKit-Plus",
+    "Commit": "4dd33be7802e805b71ad9bd4e4150515eac9e520",
+    "Branch": "feature/tweakxl-bulk-export",
+    "DirectWriteCommit": "3db99b10b079ba507b08ad664b3e1b0c7a5e4606",
+    "HelperSource": "C:\\workspace\\WolvenKit-Plus\\WolvenKit.App\\Helpers\\TweakXLAtomicFileWriter.cs",
+    "HelperSha256": "234e32f83d6fbe9a9d35213a4ad47818bdefe574a799571c9f2fb84ace89133a",
+    "ServiceSha256": "5f7c421a1790d2f2560b5f49749642f0ac30a16445c5394870510c238a29806c",
+    "HarnessSha256": "f5d8e54929b4957c9d0348e985b834c6ed48529ab4c8a14ea769847df6138667",
+    "ExtractedWritersSha256": "830e641c7e1bbb8edab973e87a1661db0520681b01c00423d59c19eaffb9464e",
+    "Sdk": "10.0.401",
+    "BenchmarkRoot": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501",
+    "ResultsDirectory": "C:\\Users\\hanlo\\Documents\\Codex\\2026-10-13\\continue-my-wolvenkit-plus-project-read\\outputs\\performance-check",
+    "Volume": [
+      {
+        "DriveLetter": "C",
+        "FileSystemType": "NTFS",
+        "DriveType": "Fixed",
+        "Size": 1999379623936,
+        "SizeRemaining": 287209488384
+      }
+    ],
+    "Disks": [
+      {
+        "Model": "WD_BLACK SN770 2TB",
+        "MediaType": "Fixed hard disk media",
+        "Size": 2000396321280
+      }
+    ],
+    "Cpu": [
+      {
+        "Name": "AMD Ryzen 7 7700X 8-Core Processor             ",
+        "NumberOfCores": 8,
+        "NumberOfLogicalProcessors": 16
+      }
+    ]
+  },
+  "Measurements": {
+    "CompletedAtUtc": "2026-10-13T13:26:05.6436063-04:00",
+    "RecordCount": 1000,
+    "MeasuredRepetitions": 3,
+    "Warmup": "One full 1000-record run per approach and scenario; not in medians.",
+    "Timing": "Sequential record-writer calls only; payload generation, directory creation, replacement seeding, verification and 250 ms settling pauses excluded.",
+    "CachePolicy": "Warm process/filesystem; no OS cache purge. Unique directory per run. No forced GC. Tiered compilation disabled for both approaches.",
+    "Scope": "Pre-serialized synthetic YAML only; no database, serializer, exporter planning, UI, or export-report timing.",
+    "DirectDurability": "Historical FileStream/StreamWriter disposal; no explicit disk flush. Measures its original completion contract.",
+    "AtomicDurability": "Unchanged helper and wrapper: encoding flush, Flush(true), close, token check and same-directory rename.",
+    "ReplacementPreparation": "1000 same-size old-state payloads seeded and disk-flushed before timing.",
+    "BenchmarkRoot": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501",
+    "ResultsDirectory": "C:\\Users\\hanlo\\Documents\\Codex\\2026-10-13\\continue-my-wolvenkit-plus-project-read\\outputs\\performance-check",
+    "Runtime": ".NET 10.0.12",
+    "OS": "Microsoft Windows 10.0.26300",
+    "Architecture": "X64",
+    "LogicalProcessors": 16,
+    "Payloads": {
+      "Distribution": [
+        {
+          "Bytes": 1024,
+          "Count": 700
+        },
+        {
+          "Bytes": 4096,
+          "Count": 250
+        },
+        {
+          "Bytes": 16384,
+          "Count": 50
+        }
+      ],
+      "TotalBytes": 2560000,
+      "MeanBytes": 2560,
+      "Encoding": "UTF-8 without BOM, LF newlines, includes accented text and an emoji; padded deterministic YAML. Not a sampled game corpus."
+    },
+    "Summary": [
+      {
+        "Scenario": "create",
+        "DirectMedianMs": 282.0345,
+        "AtomicMedianMs": 855.1371,
+        "DirectRecordsPerSecond": 3545.6655125525426,
+        "AtomicRecordsPerSecond": 1169.4031284574135,
+        "AtomicToDirectRatio": 3.032030123974195,
+        "AdditionalTimePercent": 203.2030123974195,
+        "AdditionalMsPerRecord": 0.5731026,
+        "Extrapolation193354RecordsOnly": {
+          "DirectSeconds": 54.532498712999995,
+          "AtomicSeconds": 165.3441788334,
+          "AdditionalSeconds": 110.81168012040001
+        }
+      },
+      {
+        "Scenario": "replace",
+        "DirectMedianMs": 241.4469,
+        "AtomicMedianMs": 884.4137,
+        "DirectRecordsPerSecond": 4141.697408415681,
+        "AtomicRecordsPerSecond": 1130.6925706827021,
+        "AtomicToDirectRatio": 3.662973929257323,
+        "AdditionalTimePercent": 266.2973929257323,
+        "AdditionalMsPerRecord": 0.6429668,
+        "Extrapolation193354RecordsOnly": {
+          "DirectSeconds": 46.6847239026,
+          "AtomicSeconds": 171.00492654980002,
+          "AdditionalSeconds": 124.3202026472
+        }
+      }
+    ],
+    "Runs": [
+      {
+        "Scenario": "create",
+        "Approach": "direct",
+        "Repetition": 0,
+        "Warmup": true,
+        "ElapsedMs": 291.2383,
+        "RecordsPerSecond": 3433.6143288846283,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\warmup-create-direct-0",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "atomic",
+        "Repetition": 0,
+        "Warmup": true,
+        "ElapsedMs": 901.5549,
+        "RecordsPerSecond": 1109.1947922417148,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\warmup-create-atomic-0",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "direct",
+        "Repetition": 0,
+        "Warmup": true,
+        "ElapsedMs": 229.5511,
+        "RecordsPerSecond": 4356.328503762344,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\warmup-replace-direct-0",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "atomic",
+        "Repetition": 0,
+        "Warmup": true,
+        "ElapsedMs": 898.3523,
+        "RecordsPerSecond": 1113.1490396362317,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\warmup-replace-atomic-0",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "direct",
+        "Repetition": 1,
+        "Warmup": false,
+        "ElapsedMs": 282.0345,
+        "RecordsPerSecond": 3545.6655125525426,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-create-direct-1",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "atomic",
+        "Repetition": 1,
+        "Warmup": false,
+        "ElapsedMs": 880.5421,
+        "RecordsPerSecond": 1135.6640415035238,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-create-atomic-1",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "atomic",
+        "Repetition": 1,
+        "Warmup": false,
+        "ElapsedMs": 877.4274,
+        "RecordsPerSecond": 1139.69543235144,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-replace-atomic-1",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "direct",
+        "Repetition": 1,
+        "Warmup": false,
+        "ElapsedMs": 238.1037,
+        "RecordsPerSecond": 4199.850737304796,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-replace-direct-1",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "atomic",
+        "Repetition": 2,
+        "Warmup": false,
+        "ElapsedMs": 854.882,
+        "RecordsPerSecond": 1169.7520827435833,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-create-atomic-2",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "direct",
+        "Repetition": 2,
+        "Warmup": false,
+        "ElapsedMs": 291.5312,
+        "RecordsPerSecond": 3430.164593017831,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-create-direct-2",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "direct",
+        "Repetition": 2,
+        "Warmup": false,
+        "ElapsedMs": 241.4469,
+        "RecordsPerSecond": 4141.697408415681,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-replace-direct-2",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "atomic",
+        "Repetition": 2,
+        "Warmup": false,
+        "ElapsedMs": 958.7,
+        "RecordsPerSecond": 1043.0791697089808,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-replace-atomic-2",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "direct",
+        "Repetition": 3,
+        "Warmup": false,
+        "ElapsedMs": 277.8969,
+        "RecordsPerSecond": 3598.4568377696905,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-create-direct-3",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "atomic",
+        "Repetition": 3,
+        "Warmup": false,
+        "ElapsedMs": 855.1371,
+        "RecordsPerSecond": 1169.4031284574135,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-create-atomic-3",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "atomic",
+        "Repetition": 3,
+        "Warmup": false,
+        "ElapsedMs": 884.4137,
+        "RecordsPerSecond": 1130.6925706827021,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-replace-atomic-3",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "direct",
+        "Repetition": 3,
+        "Warmup": false,
+        "ElapsedMs": 258.0911,
+        "RecordsPerSecond": 3874.6008676781184,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\measured-replace-direct-3",
+        "Inventory": {
+          "Complete": 1000,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      }
+    ],
+    "BatchCancellation": [
+      {
+        "Scenario": "create",
+        "Approach": "direct",
+        "Repetition": 1,
+        "Completed": 112,
+        "RequestToObservedMs": 1.3331,
+        "TotalMs": 34.0637,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-create-direct-1",
+        "Inventory": {
+          "Complete": 112,
+          "Original": 0,
+          "Partial": 1,
+          "Missing": 887,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "atomic",
+        "Repetition": 1,
+        "Completed": 106,
+        "RequestToObservedMs": 0.4308,
+        "TotalMs": 91.2851,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-create-atomic-1",
+        "Inventory": {
+          "Complete": 106,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 894,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "direct",
+        "Repetition": 2,
+        "Completed": 107,
+        "RequestToObservedMs": 0.2239,
+        "TotalMs": 30.0362,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-create-direct-2",
+        "Inventory": {
+          "Complete": 107,
+          "Original": 0,
+          "Partial": 1,
+          "Missing": 892,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "atomic",
+        "Repetition": 2,
+        "Completed": 115,
+        "RequestToObservedMs": 0.344,
+        "TotalMs": 94.8972,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-create-atomic-2",
+        "Inventory": {
+          "Complete": 115,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 885,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "direct",
+        "Repetition": 3,
+        "Completed": 105,
+        "RequestToObservedMs": 0.2185,
+        "TotalMs": 29.0462,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-create-direct-3",
+        "Inventory": {
+          "Complete": 105,
+          "Original": 0,
+          "Partial": 1,
+          "Missing": 894,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "create",
+        "Approach": "atomic",
+        "Repetition": 3,
+        "Completed": 107,
+        "RequestToObservedMs": 0.3294,
+        "TotalMs": 86.6863,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-create-atomic-3",
+        "Inventory": {
+          "Complete": 107,
+          "Original": 0,
+          "Partial": 0,
+          "Missing": 893,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "direct",
+        "Repetition": 1,
+        "Completed": 164,
+        "RequestToObservedMs": 0.0778,
+        "TotalMs": 38.9752,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-replace-direct-1",
+        "Inventory": {
+          "Complete": 164,
+          "Original": 836,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "atomic",
+        "Repetition": 1,
+        "Completed": 114,
+        "RequestToObservedMs": 0.38,
+        "TotalMs": 100.5483,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-replace-atomic-1",
+        "Inventory": {
+          "Complete": 114,
+          "Original": 886,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "direct",
+        "Repetition": 2,
+        "Completed": 167,
+        "RequestToObservedMs": 0.1133,
+        "TotalMs": 37.9777,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-replace-direct-2",
+        "Inventory": {
+          "Complete": 167,
+          "Original": 833,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "atomic",
+        "Repetition": 2,
+        "Completed": 118,
+        "RequestToObservedMs": 0.3612,
+        "TotalMs": 104.7607,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-replace-atomic-2",
+        "Inventory": {
+          "Complete": 118,
+          "Original": 882,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "direct",
+        "Repetition": 3,
+        "Completed": 151,
+        "RequestToObservedMs": 0.0706,
+        "TotalMs": 34.8174,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-replace-direct-3",
+        "Inventory": {
+          "Complete": 151,
+          "Original": 849,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      },
+      {
+        "Scenario": "replace",
+        "Approach": "atomic",
+        "Repetition": 3,
+        "Completed": 115,
+        "RequestToObservedMs": 0.224,
+        "TotalMs": 102.2793,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-batch-replace-atomic-3",
+        "Inventory": {
+          "Complete": 115,
+          "Original": 885,
+          "Partial": 0,
+          "Missing": 0,
+          "Temporary": 0
+        }
+      }
+    ],
+    "InFlightStagingCancellation": [
+      {
+        "Scenario": "create",
+        "Repetition": 1,
+        "RequestToObservedMs": 0.8186,
+        "TemporaryObserved": true,
+        "DestinationPreserved": true,
+        "TemporaryFilesAfter": 0,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-staged-create-1"
+      },
+      {
+        "Scenario": "create",
+        "Repetition": 2,
+        "RequestToObservedMs": 0.2154,
+        "TemporaryObserved": true,
+        "DestinationPreserved": true,
+        "TemporaryFilesAfter": 0,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-staged-create-2"
+      },
+      {
+        "Scenario": "create",
+        "Repetition": 3,
+        "RequestToObservedMs": 0.187,
+        "TemporaryObserved": true,
+        "DestinationPreserved": true,
+        "TemporaryFilesAfter": 0,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-staged-create-3"
+      },
+      {
+        "Scenario": "replace",
+        "Repetition": 1,
+        "RequestToObservedMs": 0.1749,
+        "TemporaryObserved": true,
+        "DestinationPreserved": true,
+        "TemporaryFilesAfter": 0,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-staged-replace-1"
+      },
+      {
+        "Scenario": "replace",
+        "Repetition": 2,
+        "RequestToObservedMs": 0.18,
+        "TemporaryObserved": true,
+        "DestinationPreserved": true,
+        "TemporaryFilesAfter": 0,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-staged-replace-2"
+      },
+      {
+        "Scenario": "replace",
+        "Repetition": 3,
+        "RequestToObservedMs": 0.1799,
+        "TemporaryObserved": true,
+        "DestinationPreserved": true,
+        "TemporaryFilesAfter": 0,
+        "Directory": "C:\\Users\\hanlo\\AppData\\Local\\Temp\\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501\\cancel-staged-replace-3"
+      }
+    ],
+    "AllChecksPassed": true,
+    "GeneratedDataRetained": true
+  }
+}

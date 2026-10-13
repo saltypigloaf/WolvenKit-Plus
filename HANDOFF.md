@@ -1,8 +1,22 @@
 # WolvenKit Plus — Work to Codex handoff
 
-Prepared 2026-10-13 at approximately 10:43 America/New_York. Reconciliation, local serializer diagnostics, interrupted-write protection, and the combined review/fixes completed on 2026-10-13 (America/New_York).
+Prepared 2026-10-13 at approximately 10:43 America/New_York. Reconciliation, serializer diagnostics, interrupted-write protection, combined review/fixes, publication, and the subsequent synthetic performance check completed on 2026-10-13 (America/New_York).
 
-## Current publication authorization
+## Current status: synthetic performance check completed; publication authorized
+
+The working checkout is on `feature/tweakxl-bulk-export` at **`4dd33be7802e805b71ad9bd4e4150515eac9e520`**, the published combined diagnostics/write-safety milestone. This checkout was clean when the performance task started and remained on that commit. Publication was verified during the preceding task; remote refs were not refreshed for this measurement.
+
+The measurement request authorized 1,000 synthetic payloads, three measured repetitions after warmup for creation/replacement, cancellation checks, saved scripts/results, and this handoff update, initially leaving changes uncommitted. After reviewing the results, the user explicitly authorized this milestone's publication: **"You are cleared to commit and push."** This latest instruction supersedes the measurement-stage hold recorded below.
+
+Before committing, all five measurement files matched the SHA-256 values in `outputs/performance-check/verification.json`; no unrelated or staged changes were present. The remote feature branch still matched `4dd33be7802e805b71ad9bd4e4150515eac9e520`. Only this authorization note and the report's reproduction/publication wording were then updated. Scripts, measured result JSON, and production code are unchanged; the existing benchmark/build evidence is reused, not represented as new runs.
+
+The commit containing this note records the five-file measurement milestone. Its exact commit and remote verification are saved outside the repository at `C:\Users\hanlo\Documents\Codex\2026-10-13\continue-my-wolvenkit-plus-project-read\outputs\performance-publication\publication-receipt.json`. This pre-commit note does not assert the push result. Other checkouts, game data, and published record snapshots are outside this commit/push operation.
+
+**Verdict: measured overhead is reasonable for occasional bulk exports on this machine.** Atomic writing took median **855.14 ms** to create and **884.41 ms** to replace 1,000 records, versus **282.03 / 241.45 ms** for the earlier direct writer. This is **3.03× / 3.66×** elapsed time, or **0.573 / 0.643 ms extra per record**. Atomic cancellation was observed within **0.819 ms** in all measured probes, with zero temporary leftovers or partial destinations. No production performance change is indicated by these results.
+
+Authorized publication scope: this handoff, `tools/Benchmarks/TweakXLWriterBenchmark.ps1`, its adjacent `.cs` harness, and the report/JSON under `docs/wolvenkit-plus/benchmarks/`. Production code, durability guarantees, published snapshots, and historical validation reports are unchanged. See the completed performance milestone below for methods, exact paths, limits, and remaining work. The authorization and development sections that follow are historical records of their respective stages, including references to their then-uncommitted state.
+
+## Publication authorization (historical pre-commit note)
 
 On 2026-10-13, after the combined review, the user explicitly requested: "Please commit and push." This authorizes the combined twelve-file diagnostics, write-safety, fixture, README, and handoff milestone on `feature/tweakxl-bulk-export`. It supersedes the earlier commit/push holds recorded in the historical sections below. Those sections describe the state at their respective milestones, including when this handoff was untracked.
 
@@ -25,8 +39,8 @@ The earlier Work conversation ran out of space during a large connector transfer
 | Purpose | Location | Verified reconciliation state, 2026-10-13 |
 | --- | --- | --- |
 | WolvenKit fork | https://github.com/saltypigloaf/WolvenKit-Plus | Exporter commit below confirmed present on GitHub |
-| Working WolvenKit checkout | `C:\workspace\WolvenKit-Plus` | `feature/tweakxl-bulk-export` at `3db99b10b079ba507b08ad664b3e1b0c7a5e4606`; uncommitted diagnostics and write-safety source/tests/README changes plus untracked `HANDOFF.md`, detailed below |
-| Matthew's usual WolvenKit checkout | `C:\Users\hanlo\OneDrive\Documents\GitHub\WolvenKit-Plus` | Same branch and HEAD as working checkout; clean after a one-commit fast-forward from `002b91fbe2c09d26cd89b19b42c59dc0428a99c6` |
+| Working WolvenKit checkout | `C:\workspace\WolvenKit-Plus` | Now `feature/tweakxl-bulk-export` at `4dd33be7802e805b71ad9bd4e4150515eac9e520`; only the new performance script/harness/results and handoff edits are uncommitted |
+| Matthew's usual WolvenKit checkout | `C:\Users\hanlo\OneDrive\Documents\GitHub\WolvenKit-Plus` | Final read-only inspection now finds it clean at `4dd33be7802e805b71ad9bd4e4150515eac9e520`; newer than the earlier publication receipt; this measurement task did not synchronize or modify it |
 | Upstream WolvenKit | https://github.com/WolvenKit/WolvenKit | Configured as `upstream` in the working fork |
 | Documentation repository | https://github.com/saltypigloaf/cyberpunk-mod-documentation | Import published; record README retrieved from `main` |
 | Working documentation checkout | `C:\workspace\cyberpunk-mod-documentation` | `main` at `5d23c54408ce8b505f35a67ac4cb97a6520e673e`; clean |
@@ -38,6 +52,8 @@ At reconciliation, all four current branch heads, their origin tracking refs, an
 No repository or applicable ancestor `AGENTS.md`, or repository `docs/codex/` directory, was found. The user-supplied operating instructions, WolvenKit's `docs/CONTRIBUTING.md`, and the documentation repository's `AI_GUIDE.md` were read. All writes were performed by the main session; no subagents were used.
 
 ## Verified commits
+
+The combined milestone is now **`4dd33be7802e805b71ad9bd4e4150515eac9e520` — `fix: harden TweakXL export diagnostics and file publication`**. Its push and exact remote SHA were verified in the preceding publication task; the performance task rechecked local HEAD only. `outputs/publication/publication-receipt.json` records that publication evidence. The earlier exporter/import history below remains unchanged.
 
 The two milestone commits below were reconfirmed against live GitHub branch refs during reconciliation. Exporter publication is on `feature/tweakxl-bulk-export`, not `main`; the fork's `main` remains at `4d1716b1755dcadead2815b3ec356fa61f30861c`. The published recovery branch remains at `359b8d448ebce9f2af188b7c3b1a0b626bcefff1`. Branch integration was not part of this task.
 
@@ -207,11 +223,58 @@ Current detailed evidence and handoff delivery copy:
 
 Start with `review-report.md`, `focused-tests-final.trx`, `desktop-build.log`, `validation-summary.json`, and `scope-audit.json`. `review-fixes.diff` isolates this review's edits; `combined-changes.diff` contains the full accumulated uncommitted work. `HANDOFF.updated.md` is the current delivery copy. Pre-review backups and the audit script are under sibling `work/combined-review/`. Earlier evidence is retained; no job remains running.
 
+## Completed local milestone: synthetic writer performance check
+
+**Verdict: PASS; overhead reasonable for occasional bulk exports on the measured local drive.** HEAD stayed at `4dd33be7802e805b71ad9bd4e4150515eac9e520`. Only measurement artifacts and this handoff changed; nothing was committed or pushed. Production code and durability guarantees were preserved.
+
+The standalone Release harness compiles an exact copy of the committed atomic helper and extracts its current record-write wrapper plus the prior direct-write method from `3db99b10b079ba507b08ad664b3e1b0c7a5e4606`. It does not check out older code or load the desktop application, serializer, or game database. The direct method retains its historical buffered/dispose behavior; the atomic method retains encoding completion, `Flush(true)`, close, token check, and same-directory publication.
+
+- Workload: **1,000 deterministic synthetic YAML payloads**, identical between approaches: 700 × 1,024 bytes, 250 × 4,096 bytes, 50 × 16,384 bytes; **2,560,000 total UTF-8 bytes**, mean 2,560 bytes. LF, no BOM, includes accented text/emoji. Distinct same-size old payloads seed replacement trials. These are not sampled game records.
+- Environment: Windows build 26300, SDK **10.0.401**, runtime **10.0.12**, x64 Release harness, Ryzen 7 7700X, local C: **NTFS / WD_BLACK SN770 2TB**, outside OneDrive. Source hashes and detailed environment are saved.
+- Method: one complete 1,000-record warmup for each approach/scenario, then **three measured repetitions** per case, with alternating/reversed approach order. Each run uses its own new directory. Timed scope is sequential writer calls only; generation, directory/path setup, disk-flushed replacement seeding, verification, and 250 ms settling pauses are excluded. No cache purge or background-process suppression.
+
+| Operation | Direct median | Atomic median | Direct records/s | Atomic records/s | Atomic/direct elapsed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Create | 282.03 ms | 855.14 ms | 3,545.7 | 1,169.4 | 3.03× (+203.2%) |
+| Replace | 241.45 ms | 884.41 ms | 4,141.7 | 1,130.7 | 3.66× (+266.3%) |
+
+The absolute added cost is **0.573 / 0.643 ms per record**. These measurements support retaining the safeguards; they do not identify a concrete issue needing a production fix.
+
+### Cancellation and validation performed now
+
+- Built the standalone measurement harness successfully with **zero warnings and zero errors**. No desktop build or unit-suite rerun was performed; the earlier **102 passing tests and clean desktop build remain prior evidence**.
+- All **16 full runs** (4 warmups + 12 measured) byte-verified 1,000 outputs each and found no temporary leftovers.
+- **12 asynchronous cancellation trials** (three per approach/scenario) requested cancellation on a dedicated thread shortly after 100 records completed. Request-to-observation includes writer unwinding/cleanup, but excludes the thread's delay before requesting cancellation. Atomic creation: median **0.344 ms**, max **0.431 ms**; atomic replacement: median **0.361 ms**, max **0.380 ms**. Zero atomic partial or temporary files. Direct creation left one partial file in each of its three canceled trials; direct replacement left none in these trials. All are isolated synthetic files.
+- **Six guaranteed in-flight atomic probes** canceled after staging and flushing half of a 16 KiB payload. All cleaned the observed temporary and preserved the original destination or its absence. Latency ranged **0.175–0.819 ms**. These probes use a split-write callback against the unchanged helper, not the ordinary full-string callback.
+- Sentinels and all output inventories were checked. Result counts, medians, throughput, ratios, source identity, current Git scope, and other checkout states were audited. Production files, the index, and HEAD remained unchanged. All newly generated benchmark files are retained; no cleanup outside the dedicated directory was performed.
+- The final scope audit initially compared OneDrive WolvenKit with the older publication receipt (`3db99b10`). A fresh read found that checkout already clean at `4dd33be78`; this task performed no mutation there and did not establish when it advanced. Current status is recorded rather than resetting it or repeating synchronization. Both documentation checkouts remain clean at `5d23c544`.
+- No game database access, full export, published snapshot regeneration, connector upload, in-game test, or live publication was performed. Network/cloud storage, forced termination, power loss, disk exhaustion, and cancellation during a stalled synchronous disk flush were not measured.
+
+**Extrapolation only:** multiplying the writer medians by 193.354 gives **165.3 s atomic vs 54.5 s direct for creating 193,354 files**, or **171.0 s vs 46.7 s for replacement**. Added writer time is approximately **1.85–2.07 minutes**. This is a linear extrapolation for the same synthetic payload mix/hardware, not a measured full-export duration; it excludes database, serialization, planning, report work, and filesystem scaling effects.
+
+Repository review files:
+
+- `Tools/Benchmarks/TweakXLWriterBenchmark.ps1`
+- `Tools/Benchmarks/TweakXLWriterBenchmark.cs`
+- `docs/wolvenkit-plus/benchmarks/atomic-writer-2026-10-13.md`
+- `docs/wolvenkit-plus/benchmarks/atomic-writer-2026-10-13.json`
+- `HANDOFF.md`
+
+Detailed logs, raw results/environment, payload manifest, source/script copies, audit, and current handoff delivery copy:
+
+`C:\Users\hanlo\Documents\Codex\2026-10-13\continue-my-wolvenkit-plus-project-read\outputs\performance-check\`
+
+The dedicated synthetic file tree and compiled harness remain at:
+
+`C:\Users\hanlo\AppData\Local\Temp\wolvenkit-tweakxl-writer-benchmark-b43bd18275fa4bd58c660aecf0192501`
+
+Start with `benchmark-report.md`, `results.json`, `environment.json`, `verification.json`, and `benchmark.log`. The report includes the reproduction command and full timing/cancellation limits. `HANDOFF.updated.md` is the current delivery copy. No job remains running.
+
 ## Remaining work and next direction
 
-The requested diagnostics, interrupted-write protection, and combined review/fixes are complete. No further synchronization is required for the already published commits. The accumulated local work is ready for the user's review; committing or publishing it remains a separately authorized action. Do not copy over or reset this work; the OneDrive checkout intentionally contains only the published version. Commits and pushes remain on hold.
+The diagnostics, interrupted-write protection, and combined review/fixes are committed and published at `4dd33be7802e805b71ad9bd4e4150515eac9e520`. The small synthetic performance check is also complete; its script, harness, result report/JSON, and handoff update remain uncommitted for review. Do not reset or overwrite these new files, and do not reuse the earlier publication authorization for them.
 
-Recommended next bounded development task: an offline synthetic export performance fixture/benchmark to quantify the new per-file disk-flush cost at a fixed record count, recording creation and replacement timing, cancellation responsiveness, and leftover-file counts in an owned temporary directory. Use generated records only; do not load the game database, regenerate the published snapshot, or change durability guarantees merely to improve timing. No such benchmark was run in this review.
+Next bounded action: review the measurement artifacts; no production optimization is indicated by this check. A later explicitly requested slice can commit/publish these artifacts. The OneDrive WolvenKit checkout is now observed clean at the same published `4dd33be78` code milestone; both documentation checkouts remain synchronized at `5d23c544`. No published-code or record-snapshot synchronization is currently outstanding. This measurement task performed no OneDrive synchronization.
 
 Fallback text still requires semantic review before relying on it as a tested TweakXL representation. Type inventories do not include skipped/unvisited values, and in-game loading remains untested. The earlier source-value audit is historical evidence for the unchanged published snapshot, not a rerun against this local code. Real-game/database work, snapshot regeneration, in-game testing, or live publication/integration require separately authorized slices.
 
@@ -238,8 +301,8 @@ All three local development/review milestones reverified .NET SDK `10.0.401` and
 
 ## Efficient continuation
 
-1. Read applicable repository instructions, then check for changes since this verified reconciliation. This handoff is untracked and uncommitted; treat it as expected local state.
-2. Published-commit synchronization is complete; diagnostics and write safety are intentionally uncommitted in the working checkout only. Reconfirm live refs before any future synchronization and preserve these changes.
+1. Read applicable repository instructions, then check for changes since the latest milestone. This handoff is now tracked, with an uncommitted performance update; the new benchmark files are also intentionally uncommitted.
+2. Diagnostics and write safety are published at `4dd33be78`, and OneDrive WolvenKit is now observed at that commit too. Reconfirm live refs before any future synchronization and preserve the uncommitted measurement work.
 3. Direct Git connectivity has now been established. Work previously could not resolve GitHub through the shell and fell back to 84 connector batches. Do not repeat that transfer merely because an old summary says it stopped at batch 26.
 4. Prefer scripts that process files on disk and return counts, hashes, and concise errors. Keep verbose logs on disk. Do not print the full record corpus or thousands of filenames into the conversation.
 5. Use existing evidence for unchanged work. Run additional checks only to resolve a specific discrepancy or validate a new change.
