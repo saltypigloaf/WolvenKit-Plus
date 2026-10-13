@@ -58,6 +58,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition />
                         <RowDefinition />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <CheckBox
@@ -97,6 +98,67 @@
                         IsChecked="{Binding ShowInlineEntries}">
                         Show inline records
                     </CheckBox>
+
+                    <WrapPanel
+                        Grid.Row="2"
+                        Grid.ColumnSpan="2"
+                        Margin="0,4,0,0"
+                        VerticalAlignment="Center">
+                        <CheckBox
+                            Margin="0,0,12,0"
+                            IsEnabled="{Binding CanEditBulkExportOptions}"
+                            IsChecked="{Binding BulkExportIncludeInlineRecords}">
+                            Include inline records
+                        </CheckBox>
+
+                        <CheckBox
+                            Margin="0,0,12,0"
+                            IsEnabled="{Binding CanEditBulkExportOptions}"
+                            IsChecked="{Binding BulkExportOverwriteExisting}">
+                            Overwrite existing files
+                        </CheckBox>
+
+                        <Button
+                            Margin="0,0,8,0"
+                            Padding="8,2"
+                            Command="{Binding BulkExportToYAML}"
+                            ToolTip="Export all loaded records as TweakXL YAML">
+                            <StackPanel Orientation="Horizontal">
+                                <templates:IconBox
+                                    Margin="0,0,4,0"
+                                    IconPack="Codicons"
+                                    Kind="SaveAs"
+                                    Size="{DynamicResource WolvenKitIconTiny}"
+                                    Foreground="{StaticResource WolvenKitCyan}" />
+                                <TextBlock Text="Export all TweakXL YAML" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button
+                            Margin="0,0,8,0"
+                            Padding="8,2"
+                            Command="{Binding CancelBulkExport}"
+                            ToolTip="Cancel the current TweakXL bulk export"
+                            Visibility="{Binding IsBulkExporting,
+                                                 Converter={StaticResource BooleanVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <templates:IconBox
+                                    Margin="0,0,4,0"
+                                    IconPack="Material"
+                                    Kind="Stop"
+                                    Size="{DynamicResource WolvenKitIconTiny}" />
+                                <TextBlock Text="Cancel export" />
+                            </StackPanel>
+                        </Button>
+
+                        <TextBlock
+                            MaxWidth="420"
+                            VerticalAlignment="Center"
+                            Text="{Binding BulkExportStatusText}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{Binding IsBulkExporting,
+                                                 Converter={StaticResource BooleanVisibilityConverter}}" />
+                    </WrapPanel>
                 </Grid>
             </Grid>
         </Border>
@@ -168,6 +230,33 @@
                                             Kind="SaveAs"
                                             Size="{DynamicResource WolvenKitIconTiny}"
                                             Foreground="{StaticResource WolvenKitCyan}" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+
+                                <Separator />
+
+                                <MenuItem
+                                    Command="{Binding BulkExportToYAML}"
+                                    Header="Export All TweakXL YAML...">
+                                    <MenuItem.Icon>
+                                        <templates:IconBox
+                                            IconPack="Codicons"
+                                            Kind="SaveAs"
+                                            Size="{DynamicResource WolvenKitIconTiny}"
+                                            Foreground="{StaticResource WolvenKitCyan}" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+
+                                <MenuItem
+                                    Command="{Binding CancelBulkExport}"
+                                    Header="Cancel TweakXL Bulk Export"
+                                    Visibility="{Binding IsBulkExporting,
+                                                         Converter={StaticResource BooleanVisibilityConverter}}">
+                                    <MenuItem.Icon>
+                                        <templates:IconBox
+                                            IconPack="Material"
+                                            Kind="Stop"
+                                            Size="{DynamicResource WolvenKitIconTiny}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                             </ContextMenu>

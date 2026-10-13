@@ -29,6 +29,8 @@ public class PaneViewModelFactory : IPaneViewModelFactory
     private readonly Red4ParserService _parserService;
     private readonly ITweakDBService _tweakDbService;
     private readonly ILocKeyService _locKeyService;
+    private readonly ITweakXLRecordOverrideService _tweakXLRecordOverrideService;
+    private readonly ITweakXLBulkExportService _tweakXLBulkExportService;
     private readonly ImportExportHelper _importExportHelper;
     private readonly AppScriptService _appScriptService;
 
@@ -50,6 +52,8 @@ public class PaneViewModelFactory : IPaneViewModelFactory
         Red4ParserService parserService,
         ITweakDBService tweakDbService,
         ILocKeyService locKeyService,
+        ITweakXLRecordOverrideService tweakXLRecordOverrideService,
+        ITweakXLBulkExportService tweakXLBulkExportService,
         PropertiesViewModel propertiesViewModel,
         ImportExportHelper importExportHelper,
         AppScriptService appScriptService,
@@ -70,6 +74,8 @@ public class PaneViewModelFactory : IPaneViewModelFactory
         _parserService = parserService;
         _tweakDbService = tweakDbService;
         _locKeyService = locKeyService;
+        _tweakXLRecordOverrideService = tweakXLRecordOverrideService;
+        _tweakXLBulkExportService = tweakXLBulkExportService;
         _propertiesViewModel = propertiesViewModel;
         _importExportHelper = importExportHelper;
         _appScriptService = appScriptService;
@@ -87,7 +93,7 @@ public class PaneViewModelFactory : IPaneViewModelFactory
         => new(appViewModel, _projectManager, _notificationService, _gameController, _archiveManager, _settingsManager, _progressService,
             _loggerService, _pluginService, _projectResourceTools);
     public TweakBrowserViewModel TweakBrowserViewModel(AppViewModel appViewModel)
-        => new(appViewModel, _chunkViewmodelFactory, _settingsManager, _notificationService, _projectManager, _loggerService, _tweakDbService, _locKeyService);
+        => new(appViewModel, _chunkViewmodelFactory, _settingsManager, _notificationService, _projectManager, _loggerService, _tweakDbService, _tweakXLRecordOverrideService, _tweakXLBulkExportService, _progressService);
     public LocKeyBrowserViewModel LocKeyBrowserViewModel() => new(_projectManager, _loggerService, _progressService, _modTools, _gameController, _archiveManager, _locKeyService);
 
     public ImportViewModel ImportViewModel(AppViewModel appViewModel) => new(appViewModel, _archiveManager, _notificationService, _settingsManager, _loggerService, _projectManager, _progressService, _gameController, _parserService, _importExportHelper);
