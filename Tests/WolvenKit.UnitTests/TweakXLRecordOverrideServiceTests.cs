@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -9,12 +10,42 @@ using WolvenKit.Core.Extensions;
 using WolvenKit.RED4.TweakDB;
 using WolvenKit.RED4.Types;
 using YamlDotNet.Serialization;
+using YamlDotNet.RepresentationModel;
 
 namespace WolvenKit.UnitTests;
 
 [TestClass]
 public class TweakXLRecordOverrideServiceTests
 {
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void SerializeRecordOverride_PreservesLocalizationKeysWithOrWithoutText(bool hasText)
+    {
+        const ulong key = 12345678901234567890UL;
+        var locKeyService = new Mock<ILocKeyService>();
+        if (hasText)
+        {
+            locKeyService.Setup(x => x.GetEntry(key))
+                .Returns(new localizationPersistenceOnScreenEntry { PrimaryKey = key });
+        }
+
+        var service = new TweakXLRecordOverrideService(locKeyService.Object, CreateTweakDbService());
+        var record = new TweakXL { ID = "UnitTests.Localization", Type = "gamedataScanningTooltip_Record" };
+        record.Properties.Add("displayName", (gamedataLocKeyWrapper)key);
+        record.Properties.Add("names", new CArray<gamedataLocKeyWrapper> { (gamedataLocKeyWrapper)key });
+
+        var yaml = new YamlStream();
+        using var reader = new StringReader(service.SerializeRecordOverride(record));
+        yaml.Load(reader);
+        var root = (YamlMappingNode)yaml.Documents[0].RootNode;
+        var properties = (YamlMappingNode)root.Children[new YamlScalarNode("UnitTests.Localization")];
+        Assert.AreEqual("LocKey#12345678901234567890", ((YamlScalarNode)properties.Children[new YamlScalarNode("displayName")]).Value);
+        var names = (YamlSequenceNode)properties.Children[new YamlScalarNode("names")];
+        Assert.AreEqual(1, names.Children.Count);
+        Assert.AreEqual("LocKey#12345678901234567890", ((YamlScalarNode)names.Children[0]).Value);
+    }
+
     [TestMethod]
     public void BuildRecordOverride_MatchesExistingSingleRecordYaml()
     {

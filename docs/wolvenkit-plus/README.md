@@ -1,8 +1,9 @@
 # WolvenKit Plus: TweakXL bulk exporter
 
 Status: 2026-10-13. The recovered exporter compiles on WolvenKit 9.1.0, and its
-32 focused tests pass. Export completeness against an actual Cyberpunk 2077 2.31
-database has not yet been verified.
+35 focused tests pass. A 1,009-record sample from an actual Cyberpunk 2077 2.31
+database exports successfully, including 334 inline records. Full database
+completeness and in-game loading have not yet been verified.
 
 ## Source and branches
 
@@ -39,7 +40,7 @@ that broke compiler arguments and produced CS1504 errors. Keeping that property
 on one line fixed the failure without changing its namespace entries or
 disabling analyzers. The successful desktop rebuild reported zero warnings and
 zero errors. The earlier test compilation emitted nullable warnings from
-unchanged upstream RED4 sources; all 32 selected tests executed and passed.
+unchanged upstream RED4 sources; all 35 selected tests executed and passed.
 
 ## Current exporter behavior
 
@@ -53,21 +54,48 @@ unchanged upstream RED4 sources; all 32 selected tests executed and passed.
 - Export supports progress, cancellation, overwrite control, and filename
   collision handling. A failed record does not abort the remaining export.
 - Single-record and bulk export share the same record serializer.
+- A missing localization text entry preserves the original numeric `LocKey#`
+  reference instead of failing the entire record's export.
 
 This is a record exporter. It does not separately dump all standalone flats,
 queries, or group tags, and it does not recursively embed referenced records
 inside their parents. It should not yet be described as a complete database dump.
 
+## Actual 2.31 database validation
+
+The installed executable reported product version `2.31`. A read-only diagnostic
+loaded `r6/cache/tweakdb_ep1.bin` and WolvenKit's bundled hash/name tables, then
+called the actual bulk export service using the game's English localization
+archives. Output went to a separate development directory.
+
+- Database size: 48,192,743 bytes.
+- Database SHA-256: `89c7ee678c1366d4c289edc78beaa60ce3d64bf44b300fc3902adc94f6ac14c5`.
+- Records: 193,354; all record names resolved.
+- Names matching the exporter's inline pattern: 121,037.
+- Flats: 3,306,462; queries: 459; group tags: 5,862.
+
+The sample selected the ordinally first record from each `(record type, inline
+status)` group: 1,009 records covering 843 record types, including 334 inline
+records. With inline export enabled, all 1,009 exported with no failures or
+skips, and all generated record files parsed successfully with YamlDotNet.
+This verifies YAML syntax, not TweakXL runtime compatibility or value completeness.
+
+Before the localization fix, the same sample failed on
+`scanning.sample_reveal_item`: its localization key had no matching text entry.
+Preserving the numeric key fixed that failure. Regression tests cover scalar
+and array localization keys with and without text, plus explicitly enabled
+inline export, including nested inline names.
+
 ## Next validation
 
-1. Export an actual 2.31 database with inline records enabled and retain the
-   report, game version, and database source.
-2. Reproduce specific missing inline records and distinguish unresolved names,
-   serialization failures, and references to other records.
-3. Add positive inline export coverage using representative data. Existing
-   coverage checks default skipping, but does not prove real inline completeness.
+1. Export the full 2.31 record set with inline records enabled and retain the
+   report. The successful sample does not prove that every record exports.
+2. Compare actual flat values and cross-record references against the YAML,
+   especially for the previously reported missing inline items.
+3. Validate a small exported set through TweakXL in game before treating the
+   output as runtime-tested.
 4. Resolve unsupported value handling and populate the currently unfinished
    fallback/unsupported-type diagnostics before treating the report as a
    completeness audit.
 
-No in-game load test or full 2.31 export was performed during the recovery and port.
+No in-game load test or full 2.31 export has been performed.

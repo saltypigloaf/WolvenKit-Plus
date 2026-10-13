@@ -293,14 +293,15 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
     {
         if (locKeyWrapper.Key != 0)
         {
-            var loc = _locKeyService.GetEntry(locKeyWrapper.Key).NotNull();
+            // A missing text entry must not prevent exporting its numeric reference.
+            var key = _locKeyService.GetEntry(locKeyWrapper.Key)?.PrimaryKey ?? locKeyWrapper.Key;
 
             if (!string.IsNullOrWhiteSpace(property))
             {
                 emitter.Emit(new Scalar(property));
             }
 
-            emitter.Emit(new Scalar($"LocKey#{loc.PrimaryKey}"));
+            emitter.Emit(new Scalar($"LocKey#{key}"));
         }
     }
 

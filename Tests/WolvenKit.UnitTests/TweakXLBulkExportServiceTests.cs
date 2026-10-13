@@ -17,6 +17,34 @@ namespace WolvenKit.UnitTests;
 public class TweakXLBulkExportServiceTests
 {
     [TestMethod]
+    public async Task ExportAsync_IncludesInlineRecordsWhenEnabled()
+    {
+        var exportRoot = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(["Items.Parent", "Items.Parent_inline0", "Items.Parent_inline0_inline1"]);
+            var report = await service.ExportAsync(new TweakXLExportOptions
+            {
+                ExportRoot = exportRoot,
+                IncludeInlineRecords = true,
+                WriteReport = false
+            });
+
+            AssertFileContent(exportRoot, "Items.Parent", "yaml:Items.Parent");
+            AssertFileContent(exportRoot, "Items.Parent_inline0", "yaml:Items.Parent_inline0");
+            AssertFileContent(exportRoot, "Items.Parent_inline0_inline1", "yaml:Items.Parent_inline0_inline1");
+            Assert.AreEqual(3, report.ExportedRecords);
+            Assert.AreEqual(0, report.FailedRecords);
+            Assert.AreEqual(0, report.SkippedRecords);
+            Assert.AreEqual(0, report.SkippedInlineRecords);
+        }
+        finally
+        {
+            DeleteTempDirectory(exportRoot);
+        }
+    }
+
+    [TestMethod]
     public async Task ExportAsync_ExportsTwoResolvedRecordsIntoExpectedFolders()
     {
         var exportRoot = CreateTempDirectory();
