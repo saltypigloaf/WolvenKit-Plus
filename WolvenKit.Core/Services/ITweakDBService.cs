@@ -8,7 +8,9 @@ namespace WolvenKit.Common.Services
     {
         event EventHandler? Loaded;
 
+        public string? SourcePath { get; }
         public string? GetString(ulong hash);
+        public IReadOnlyList<ulong> GetRecords();
         public Task LoadDB(string path);
         public bool IsLoaded { get; set; }
     }

@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
@@ -15,14 +16,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WolvenKit.App.Factories;
 using WolvenKit.App.Helpers;
+using WolvenKit.App.Interaction;
 using WolvenKit.App.Models;
 using WolvenKit.App.Services;
 using WolvenKit.App.ViewModels.Shell;
 using WolvenKit.Common.Services;
 using WolvenKit.Core.Extensions;
 using WolvenKit.Core.Interfaces;
+using WolvenKit.Core.Services;
 using WolvenKit.RED4.Types;
-using YamlDotNet.Serialization;
 
 namespace WolvenKit.App.ViewModels.Tools;
 
@@ -47,7 +49,12 @@ public partial class TweakBrowserViewModel : ToolViewModel
     private readonly IProjectManager _projectManager;
     private readonly ILoggerService _loggerService;
     private readonly ITweakDBService _tweakDB;
-    private readonly ILocKeyService _locKeyService;
+    private readonly ITweakXLRecordOverrideService _tweakXLRecordOverrideService;
+    private readonly ITweakXLBulkExportService _tweakXLBulkExportService;
+    private readonly IProgressService<double> _progressService;
+
+    private List<TweakEntry> _loadedRecordEntries = new();
+    private CancellationTokenSource? _bulkExportCancellationTokenSource;
 
     public string Extension { get; set; } = "tweak";
 
@@ -63,6 +70,11 @@ public partial class TweakBrowserViewModel : ToolViewModel
     [ObservableProperty] private TweakEntry? _selectedQueryEntry;
     [ObservableProperty] private TweakEntry? _selectedGroupTagEntry;
 
+    [ObservableProperty] private bool _bulkExportIncludeInlineRecords;
+    [ObservableProperty] private bool _bulkExportOverwriteExisting;
+    [ObservableProperty] private bool _isBulkExporting;
+    [ObservableProperty] private string _bulkExportStatusText = "";
+
     #endregion fields
 
     #region constructors
@@ -75,7 +87,9 @@ public partial class TweakBrowserViewModel : ToolViewModel
         IProjectManager projectManager,
         ILoggerService loggerService,
         ITweakDBService tweakDbService,
-        ILocKeyService locKeyService
+        ITweakXLRecordOverrideService tweakXLRecordOverrideService,
+        ITweakXLBulkExportService tweakXLBulkExportService,
+        IProgressService<double> progressService
     ) : base(ToolTitle)
     {
         _appViewModel = appViewModel;
@@ -85,11 +99,17 @@ public partial class TweakBrowserViewModel : ToolViewModel
         _projectManager = projectManager;
         _loggerService = loggerService;
         _tweakDB = tweakDbService;
-        _locKeyService = locKeyService;
+        _tweakXLRecordOverrideService = tweakXLRecordOverrideService;
+        _tweakXLBulkExportService = tweakXLBulkExportService;
+        _progressService = progressService;
         _tweakDB.Loaded += Load;
 
         PropertyChanged += InternalPropertyChanged;
     }
+
+    partial void OnIsLoadingChanged(bool value) => NotifyBulkExportCanExecuteChanged();
+
+    partial void OnIsBulkExportingChanged(bool value) => NotifyBulkExportCanExecuteChanged();
 
     private void InternalPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -197,6 +217,8 @@ public partial class TweakBrowserViewModel : ToolViewModel
     public ObservableCollection<ChunkViewModel> SelectedQuery { get; set; } = new();
     [ObservableProperty] private ChunkViewModel? _selectedGroupTag;
 
+    public bool CanEditBulkExportOptions => !IsLoading && !IsBulkExporting;
+
     #endregion
 
     #region Methods
@@ -205,6 +227,11 @@ public partial class TweakBrowserViewModel : ToolViewModel
     {
         if (_tweakDB.IsLoaded)
         {
+            if (IsLoading)
+            {
+                Load(_tweakDB, EventArgs.Empty);
+            }
+
             return;
         }
 
@@ -236,6 +263,7 @@ public partial class TweakBrowserViewModel : ToolViewModel
 
         DispatcherHelper.RunOnMainThread(() =>
         {
+            _loadedRecordEntries = records;
             RecordTypes = classes;
 
             Records = CollectionViewSource.GetDefaultView(records);
@@ -253,6 +281,7 @@ public partial class TweakBrowserViewModel : ToolViewModel
             Refresh();
 
             IsLoading = false;
+            NotifyBulkExportCanExecuteChanged();
             _notificationService.Success($"Tweak Browser is initialized");
         });
 
@@ -343,19 +372,7 @@ public partial class TweakBrowserViewModel : ToolViewModel
             return;
         }
 
-        var txl = new TweakXL
-        {
-            ID = SelectedRecordEntry.DisplayName
-        };
-
-        var baseRecord = TweakDBService.GetRecord(SelectedRecordEntry.Item).NotNull();
-        txl.Type = "gamedata" + SelectedRecordEntry.RecordTypeName + "_Record";
-
-        txl.ID = SelectedRecordEntry.Item;
-
-        baseRecord.GetPropertyNames().ForEach(name => txl.Properties.Add(name, baseRecord.GetProperty(name).NotNull()));
-
-        var txlFile = new TweakXLFile { txl };
+        var txl = _tweakXLRecordOverrideService.BuildRecordOverride(SelectedRecordEntry.Item);
         var tweakDirectory =
             _projectManager.ActiveProject.GetResourceTweakDirectory(_settingsManager.UseAuthorNameAsSubfolder, true);
 
@@ -363,14 +380,9 @@ public partial class TweakBrowserViewModel : ToolViewModel
             tweakDirectory,
             $"{SelectedRecordEntry.DisplayName}.yaml");
 
-        var serializer = new SerializerBuilder()
-                 .WithTypeConverter(new TweakXLYamlTypeConverter(_locKeyService, _tweakDB))
-                 .WithIndentedSequences()
-                 .Build();
-
         try
         {
-            var yaml = serializer.Serialize(txlFile);
+            var yaml = _tweakXLRecordOverrideService.SerializeRecordOverride(txl);
             File.WriteAllText(path, yaml);
 
             _loggerService.Success($"{SelectedRecordEntry.DisplayName} TweakXL written to: {path}");
@@ -381,6 +393,163 @@ public partial class TweakBrowserViewModel : ToolViewModel
             throw;
         }
 
+    }
+
+    private AsyncRelayCommand? _bulkExportToYAML;
+    public IAsyncRelayCommand BulkExportToYAML => _bulkExportToYAML ??=
+        new AsyncRelayCommand(ExecuteBulkExportToYAMLAsync, CanExecuteBulkExportToYAML);
+
+    private bool CanExecuteBulkExportToYAML() =>
+        !IsLoading && !IsBulkExporting && _tweakDB.IsLoaded && _loadedRecordEntries.Count > 0;
+
+    private async Task ExecuteBulkExportToYAMLAsync()
+    {
+        if (!CanExecuteBulkExportToYAML())
+        {
+            return;
+        }
+
+        var exportRoot = PromptForBulkExportRoot();
+        if (string.IsNullOrWhiteSpace(exportRoot))
+        {
+            return;
+        }
+
+        var recordIds = _loadedRecordEntries.Select(entry => entry.Item).ToList();
+        using var cancellationTokenSource = new CancellationTokenSource();
+        _bulkExportCancellationTokenSource = cancellationTokenSource;
+
+        var options = new TweakXLExportOptions
+        {
+            ExportRoot = exportRoot,
+            RecordIds = recordIds,
+            IncludeInlineRecords = BulkExportIncludeInlineRecords,
+            OverwriteExisting = BulkExportOverwriteExisting,
+            WriteReport = true
+        };
+
+        var progress = new Progress<TweakXLExportProgress>(ReportBulkExportProgress);
+
+        try
+        {
+            IsBulkExporting = true;
+            BulkExportStatusText = $"Exporting TweakXL YAML 0/{recordIds.Count}";
+            _progressService.Report(0);
+
+            var report = await Task.Run(
+                () => _tweakXLBulkExportService.ExportAsync(options, progress, cancellationTokenSource.Token),
+                cancellationTokenSource.Token);
+
+            await ShowBulkExportSummaryAsync(report);
+        }
+        catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+        {
+            _notificationService.Warning("TweakXL bulk export canceled.");
+            _loggerService.Warning("TweakXL bulk export canceled before it could finish.");
+        }
+        catch (Exception ex)
+        {
+            _notificationService.Error("TweakXL bulk export failed. See the log for details.");
+            _loggerService.Error($"Failed to bulk export TweakXL YAML. Error: {ex}");
+
+            await Interactions.ShowMessageBoxAsync(
+                $"TweakXL bulk export failed.{Environment.NewLine}{ex.Message}",
+                "TweakXL bulk export",
+                WMessageBoxButtons.Ok,
+                WMessageBoxImage.Error);
+        }
+        finally
+        {
+            _bulkExportCancellationTokenSource = null;
+            IsBulkExporting = false;
+            _progressService.Completed();
+        }
+    }
+
+    private string? PromptForBulkExportRoot()
+    {
+        string? defaultPath = null;
+        if (_projectManager.ActiveProject is not null)
+        {
+            defaultPath = _projectManager.ActiveProject.GetResourceTweakDirectory(
+                _settingsManager.UseAuthorNameAsSubfolder,
+                true);
+        }
+
+        var dialog = new FolderPicker
+        {
+            Title = "Select TweakXL bulk export root",
+            OkButtonLabel = "Export",
+            ForceFileSystem = true,
+            InputPath = Directory.Exists(defaultPath) ? defaultPath : null
+        };
+
+        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.ResultPath))
+        {
+            return null;
+        }
+
+        return dialog.ResultPath;
+    }
+
+    private void ReportBulkExportProgress(TweakXLExportProgress progress)
+    {
+        _progressService.Report(progress.Completion);
+
+        BulkExportStatusText = progress.RequestedRecords <= 0
+            ? "Preparing TweakXL YAML export..."
+            : $"Exporting TweakXL YAML {progress.ProcessedRecords}/{progress.RequestedRecords}";
+    }
+
+    private async Task ShowBulkExportSummaryAsync(TweakXLExportReport report)
+    {
+        var reportPath = TweakXLExportPathHelper.GetReportPath(report.ExportRoot);
+        var caption = report.Canceled ? "TweakXL bulk export canceled" : "TweakXL bulk export complete";
+        var message =
+            $"Exported: {report.ExportedRecords}{Environment.NewLine}" +
+            $"Failed: {report.FailedRecords}{Environment.NewLine}" +
+            $"Skipped: {report.SkippedRecords}{Environment.NewLine}" +
+            $"Report: {reportPath}";
+
+        BulkExportStatusText = caption;
+        if (report.Canceled)
+        {
+            _notificationService.Warning("TweakXL bulk export canceled.");
+            _loggerService.Warning($"{caption}. {message}");
+        }
+        else if (report.FailedRecords > 0)
+        {
+            _notificationService.Warning("TweakXL bulk export finished with failures.");
+            _loggerService.Warning($"{caption}. {message}");
+        }
+        else
+        {
+            _notificationService.Success("TweakXL bulk export complete.");
+            _loggerService.Success($"{caption}. {message}");
+        }
+
+        await Interactions.ShowMessageBoxAsync(
+            message,
+            caption,
+            WMessageBoxButtons.Ok,
+            report.FailedRecords > 0 ? WMessageBoxImage.Warning : WMessageBoxImage.Information);
+    }
+
+    private RelayCommand? _cancelBulkExport;
+    public ICommand CancelBulkExport => _cancelBulkExport ??=
+        new RelayCommand(ExecuteCancelBulkExport, () => IsBulkExporting);
+
+    private void ExecuteCancelBulkExport()
+    {
+        _bulkExportCancellationTokenSource?.Cancel();
+        BulkExportStatusText = "Canceling TweakXL YAML export...";
+    }
+
+    private void NotifyBulkExportCanExecuteChanged()
+    {
+        OnPropertyChanged(nameof(CanEditBulkExportOptions));
+        _bulkExportToYAML?.NotifyCanExecuteChanged();
+        _cancelBulkExport?.NotifyCanExecuteChanged();
     }
 
     private RelayCommand? _copyName;

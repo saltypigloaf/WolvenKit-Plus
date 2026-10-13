@@ -90,6 +90,8 @@ namespace WolvenKit
                     services.AddSingleton<IAppArchiveManager, AppArchiveManager>();
                     services.AddSingleton<IArchiveManager>(provider => provider.GetService<IAppArchiveManager>());
                     services.AddTransient<ILocKeyService, LocKeyServiceExt>();                  // can this be transient?
+                    services.AddTransient<ITweakXLRecordOverrideService, TweakXLRecordOverrideService>();
+                    services.AddTransient<ITweakXLBulkExportService, TweakXLBulkExportService>();
                     services.AddSingleton<IRecentlyUsedItemsService, RecentlyUsedItemsService>();
                     services.AddSingleton<IProjectManager, ProjectManager>();
                     services.AddTransient<GeometryCacheService>();

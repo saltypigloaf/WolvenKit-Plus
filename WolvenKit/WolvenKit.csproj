@@ -22,8 +22,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <InterceptorsPreviewNamespaces>
-      $(InterceptorsPreviewNamespaces);Microsoft.Extensions.Configuration.Binder.SourceGeneration</InterceptorsPreviewNamespaces>
+    <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.Extensions.Configuration.Binder.SourceGeneration</InterceptorsPreviewNamespaces>
   </PropertyGroup>
 
   <PropertyGroup>

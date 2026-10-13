@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using WolvenKit.Common.Model;
 using WolvenKit.RED4.TweakDB;
@@ -18,6 +19,7 @@ namespace WolvenKit.Common.Services
         private bool _isLoading;
 
         public bool IsLoaded { get; set; }
+        public string? SourcePath { get; private set; }
         public event EventHandler? Loaded;
 
         public TweakDBService(IHashService hashService)
@@ -35,6 +37,7 @@ namespace WolvenKit.Common.Services
             }
 
             _isLoading = true;
+            SourcePath = path;
 
             await _hashService.Loaded;
 
@@ -115,6 +118,7 @@ namespace WolvenKit.Common.Services
         //}
 
         public static List<TweakDBID> GetRecords() => s_tweakDb.GetRecords();
+        IReadOnlyList<ulong> ITweakDBService.GetRecords() => GetRecords().Select(recordId => (ulong)recordId).ToList();
         public static List<TweakDBID> GetFlats() => s_tweakDb.GetFlats();
         public static List<TweakDBID> GetQueries() => s_tweakDb.GetQueries();
         public static List<TweakDBID> GetGroupTags() => s_tweakDb.GetGroupTags();
