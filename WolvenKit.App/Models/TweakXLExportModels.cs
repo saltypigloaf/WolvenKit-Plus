@@ -93,6 +93,8 @@ public sealed record TweakXLExportReport
     [YamlMember(Alias = "existingFileSkips")]
     public int ExistingFileSkips { get; init; }
 
+    // Distinct CLR types encountered in attempted serialization, including failed records.
+    // These are observations, not a completeness audit of skipped/unvisited values.
     [YamlMember(Alias = "fallbackValueTypes")]
     public IReadOnlyList<string> FallbackValueTypes { get; init; } = Array.Empty<string>();
 

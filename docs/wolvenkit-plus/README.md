@@ -1,11 +1,11 @@
 # WolvenKit Plus: TweakXL bulk exporter
 
-Status: 2026-10-13. The recovered exporter compiles on WolvenKit 9.1.0, and its
-50 focused tests pass. All 193,354 records from an actual Cyberpunk 2077 2.31
-database export successfully, including 121,037 inline records. An independent
-audit found no missing record names, type mismatches, YAML syntax failures,
-or array-length mismatches. Scalar-value completeness and in-game loading have
-not yet been verified.
+Status: 2026-10-13. The published 2.31 milestone records a successful WolvenKit
+9.1.0 desktop build and 52 passing focused tests. All 193,354 source records were
+exported, including 121,037 inline records. Independent audits found no missing
+record names, type mismatches, YAML syntax failures, array-length mismatches,
+or source-value mismatches within the coverage described below. These are saved
+milestone results; they do not establish in-game TweakXL compatibility.
 
 ## Source and branches
 
@@ -37,12 +37,14 @@ dotnet test .\Tests\WolvenKit.UnitTests\WolvenKit.UnitTests.csproj --disable-bui
 The desktop build output is under
 `WolvenKit/bin/x64/Debug/net10.0-windows10.0.26100.0/win-x64/`.
 
-The first desktop build exposed a newline in `InterceptorsPreviewNamespaces`
+During the earlier port and array-fix milestone, the first desktop build exposed
+a newline in `InterceptorsPreviewNamespaces`
 that broke compiler arguments and produced CS1504 errors. Keeping that property
 on one line fixed the failure without changing its namespace entries or
 disabling analyzers. The successful desktop rebuild reported zero warnings and
 zero errors. The earlier test compilation emitted nullable warnings from
-unchanged upstream RED4 sources; all 50 selected tests executed and passed.
+unchanged upstream RED4 sources; all 50 selected tests executed and passed at
+that stage. The subsequent resource/rotation fix raised the saved total to 52.
 
 ## Current exporter behavior
 
@@ -62,6 +64,8 @@ unchanged upstream RED4 sources; all 50 selected tests executed and passed.
 - Empty CName, TweakDBID, and localization entries retain their array positions.
 - Record type lookup uses the existing ID index instead of scanning every record
   for each exported file.
+- Serialization reports distinct fallback and unsupported CLR value types for
+  each export attempt; see the diagnostic contract below.
 
 This is a record exporter. It does not separately dump all standalone flats,
 queries, or group tags, and it does not recursively embed referenced records
@@ -146,19 +150,105 @@ Coverage details matter when using this as reference material:
   18 flat names are unresolved. These, 459 queries, and 5,862 group tags are
   outside this record export.
 
-All 52 focused TweakXL/TweakDB tests pass, including unknown/empty resource hashes,
-Euler-angle mappings, and decimal formatting under `de-DE`. The desktop build
-succeeds. Machine-readable results are in
+The saved published milestone reports 52 passing focused TweakXL/TweakDB tests,
+including unknown/empty resource hashes, Euler-angle mappings, and decimal
+formatting under `de-DE`, plus a successful desktop build. Machine-readable
+results are in
 [validation-2.31.json](validation-2.31.json).
 
-## Next validation
+## Serializer diagnostics
+
+The bulk report's existing `fallbackValueTypes` and `unsupportedValueTypes`
+fields now contain sorted, distinct CLR full type names observed during that
+export. They are type inventories, not occurrence counts or a completeness
+audit. Null values are identified as `<null>`.
+
+- **Supported:** explicit writers for CName, TweakDBID, resource references,
+  localization keys, vectors, Euler angles, floats, integers, strings, booleans,
+  and arrays of supported elements. Their existing YAML representation is
+  preserved; intentionally omitted empty scalars are not diagnostics.
+- **Fallback:** a value without an explicit writer whose override of `object.ToString()`
+  supplies non-null scalar text. The text is preserved and its type reported.
+  This does not prove that TweakXL accepts that representation or that the text
+  preserves every component of a structured value.
+- **Unsupported:** a null value, a value with only the default object/value-type
+  string representation, a `ToString()` that returns null or throws, or a
+  top-level TweakXL item with no writer. Serialization fails with its type in
+  the error. Bulk export records that failure and continues with later records;
+  the failed record's destination is not opened or overwritten. For example,
+  a `CVariant` is now rejected instead of being written as its CLR type name.
+  Hidden or generic methods named `ToString` do not count as overrides; the
+  converter checks the virtual method it actually calls, including inherited overrides.
+
+Scalar properties, standalone flat values, and array elements use the same
+fallback classification. Each export owns its collector; the report receives
+detached snapshots. Observations made before a record fails or the export is
+canceled remain in the report, including fallbacks from an ultimately failed
+record. Skipped records, records after cancellation, and properties after a
+serialization failure have not been examined. A type can appear in both lists
+if different instances produce different conversion outcomes.
+
+Empty diagnostics do not establish complete source coverage or runtime
+compatibility. The published 2.31 validation report predates this diagnostic
+implementation; its historical unfinished-diagnostics limitation is retained.
+The record snapshot and source-value audit have not been regenerated for this
+change. Local synthetic-fixture validation is recorded separately in `HANDOFF.md`.
+
+Local diagnostic validation on 2026-10-13 passed all 69 focused TweakXL/TweakDB
+tests (the existing 52 plus 17 new diagnostic cases). The desktop Debug x64 build
+also passed with zero warnings and errors using SDK `10.0.401`. These checks used
+synthetic fixtures; the full source export and value audit were not rerun.
+
+## Completed-file publication
+
+Record YAML and `export_report.yaml` now write to exclusively created sibling
+`.wolvenkit-tweakxl-<id>.tmp` files. Text/encoding buffers finish first, then the
+file is flushed to disk and closed. A same-directory rename publishes the
+completed file, enforcing the requested overwrite policy at that final step.
+The existing destination is not truncated while new content is being written.
+The temporary filename does not extend an already long record filename.
+
+Cancellation and handled write/finalization/publication errors remove only the
+temporary file owned by that attempt. A racing destination is preserved when
+overwrite is disabled. If cleanup itself fails, the exception identifies the
+leftover path and retains both errors. Record failures remain per-record;
+failure to publish the final report propagates and preserves the previous
+report. Canceled runs still write their report with a non-canceled token.
+If cancellation coincides with another failure (including temporary cleanup),
+the report retains the failure and marks the run canceled, even on the last record.
+
+Cancellation is checked immediately before publication. A rename that already
+succeeds is not rolled back if cancellation arrives afterward. This protects
+individual files, not an entire export as one transaction. Abrupt process exit
+can leave a `.tmp` file; this change does not scan for or delete older leftovers.
+Power-loss durability and network/cloud filesystem semantics were not tested.
+The per-file disk flush adds I/O cost; full-corpus performance was not remeasured.
+
+The implementation uses the .NET [move/overwrite API](https://learn.microsoft.com/en-us/dotnet/api/system.io.file.move?view=net-10.0)
+and [disk-flush API](https://learn.microsoft.com/en-us/dotnet/api/system.io.filestream.flush?view=net-10.0).
+Keeping the temporary file beside the destination avoids a cross-volume move.
+
+Local write-safety validation on 2026-10-13 passed all 89 focused TweakXL/TweakDB
+tests: the previous 69 plus 20 new cases. Fixtures cover complete-byte
+publication, cancellation, partial-write and finalization faults, competing
+destinations, locked record/report replacement, cleanup errors, and canceled
+report publication. The desktop Debug x64 build passed with zero warnings and
+errors. The full source export and in-game validation were not rerun.
+
+The subsequent combined review corrected virtual-method fallback detection and
+cancellation reporting when another error occurs on the final record. Its local
+fixtures passed all 102 focused tests (89 previous cases plus 13 new cases).
+The desktop Debug x64 build also passed with zero warnings and errors.
+Earlier 52/69/89-test results above remain historical milestone evidence.
+
+## Further validation
 
 1. Add standalone-flat and separate queries/group-tag exports
    if a complete database reference is required.
 2. Validate a small exported set through TweakXL in game before treating the
    output as runtime-tested.
-3. Resolve unsupported value handling and populate the currently unfinished
-   fallback/unsupported-type diagnostics before treating the report as a
-   completeness audit.
+3. Review any reported fallback types before relying on their YAML semantics;
+   implement explicit representations only with focused fixtures and evidence
+   for the intended TweakXL format. Diagnostics alone are not a completeness audit.
 
 The full 2.31 record export is complete. No in-game load test has been performed.

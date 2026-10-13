@@ -66,6 +66,7 @@ public sealed class TweakXLBulkExportService : ITweakXLBulkExportService
         var existingFileSkips = 0;
         var failures = new List<TweakXLExportFailure>();
         var existingFileSkipDetails = new List<TweakXLExportRecordReference>();
+        var diagnostics = new TweakXLSerializationDiagnostics();
         var canceled = false;
 
         ReportProgress(null);
@@ -107,7 +108,7 @@ public sealed class TweakXLBulkExportService : ITweakXLBulkExportService
                 }
 
                 var txl = _recordOverrideService.BuildRecordOverride(plan.RecordId);
-                var yaml = _recordOverrideService.SerializeRecordOverride(txl);
+                var yaml = _recordOverrideService.SerializeRecordOverride(txl, diagnostics);
                 await WriteRecordYamlAsync(absolutePath, yaml, options.ShouldOverwriteExisting, cancellationToken);
 
                 exportedRecords++;
@@ -128,6 +129,13 @@ public sealed class TweakXLBulkExportService : ITweakXLBulkExportService
                     Error = ex.Message
                 });
                 ReportProgress(plan);
+                // Cleanup can wrap cancellation in an I/O error. Retain both outcomes,
+                // even when this is the last plan and there is no next-loop token check.
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    canceled = true;
+                    break;
+                }
             }
         }
 
@@ -149,9 +157,8 @@ public sealed class TweakXLBulkExportService : ITweakXLBulkExportService
             SkippedUnresolvedRecords = skippedUnresolvedRecords.Count,
             PathCollisions = pathCollisions.Count,
             ExistingFileSkips = existingFileSkips,
-            // TODO: Surface serializer fallback/unsupported value type counts when TweakXLYamlTypeConverter exposes them.
-            FallbackValueTypes = Array.Empty<string>(),
-            UnsupportedValueTypes = Array.Empty<string>(),
+            FallbackValueTypes = diagnostics.FallbackValueTypes,
+            UnsupportedValueTypes = diagnostics.UnsupportedValueTypes,
             SkippedInlineRecordDetails = skippedInlineRecords,
             SkippedUnresolvedRecordDetails = skippedUnresolvedRecords,
             PathCollisionDetails = pathCollisions,
@@ -166,7 +173,8 @@ public sealed class TweakXLBulkExportService : ITweakXLBulkExportService
                 .WithIndentedSequences()
                 .Build();
 
-            await File.WriteAllTextAsync(reportPath, serializer.Serialize(report), CancellationToken.None);
+            // A canceled run must still publish its report; preserve the previous report if writing fails.
+            await WriteRecordYamlAsync(reportPath, serializer.Serialize(report), true, CancellationToken.None);
         }
 
         return report;
@@ -262,24 +270,21 @@ public sealed class TweakXLBulkExportService : ITweakXLBulkExportService
     private static string FormatRecordId(TweakDBID recordId) =>
         $"0x{((ulong)recordId).ToString("X16", CultureInfo.InvariantCulture)}";
 
-    private static async Task WriteRecordYamlAsync(
+    private static Task WriteRecordYamlAsync(
         string absolutePath,
         string yaml,
         bool overwriteExisting,
         CancellationToken cancellationToken)
-    {
-        var fileMode = overwriteExisting ? FileMode.Create : FileMode.CreateNew;
-
-        await using var stream = new FileStream(
+        => TweakXLAtomicFileWriter.WriteAsync(
             absolutePath,
-            fileMode,
-            FileAccess.Write,
-            FileShare.None,
-            4096,
-            true);
-        await using var writer = new StreamWriter(stream);
-        await writer.WriteAsync(yaml.AsMemory(), cancellationToken);
-    }
+            overwriteExisting,
+            async (stream, token) =>
+            {
+                await using var writer = new StreamWriter(stream, leaveOpen: true);
+                await writer.WriteAsync(yaml.AsMemory(), token);
+                await writer.FlushAsync(token);
+            },
+            cancellationToken);
 
     private sealed class ExportPlan
     {

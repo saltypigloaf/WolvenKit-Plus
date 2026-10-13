@@ -17,6 +17,205 @@ namespace WolvenKit.UnitTests;
 public class TweakXLBulkExportServiceTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ExportAsync_CancellationWithFailure_ReportsBothEvenOnLastRecord(bool hasLaterRecord)
+    {
+        var exportRoot = CreateTempDirectory();
+        try
+        {
+            using var cancellation = new CancellationTokenSource();
+            TweakDBID[] records = hasLaterRecord
+                ? ["UnitTests.CanceledFailure", "UnitTests.Unvisited"]
+                : ["UnitTests.CanceledFailure"];
+            var service = CreateService(records, out _, out var overrides);
+            var destination = GetRecordPath(exportRoot, "UnitTests.CanceledFailure");
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            await File.WriteAllTextAsync(destination, "old complete record");
+            // Model the helper's cancellation + cleanup error at the per-record exception boundary.
+            var failure = new IOException("Temporary file cleanup failed for fixture.tmp",
+                new AggregateException(new OperationCanceledException(cancellation.Token), new IOException("cleanup error")));
+            overrides.Setup(x => x.SerializeRecordOverride(It.IsAny<TweakXL>(), It.IsAny<TweakXLSerializationDiagnostics>()))
+                .Returns((TweakXL _, TweakXLSerializationDiagnostics _) =>
+                {
+                    cancellation.Cancel();
+                    throw failure;
+                });
+
+            var report = await service.ExportAsync(new TweakXLExportOptions
+            {
+                ExportRoot = exportRoot,
+                OverwriteExisting = true
+            }, cancellationToken: cancellation.Token);
+
+            Assert.IsTrue(report.Canceled);
+            Assert.AreEqual(1, report.FailedRecords);
+            Assert.AreEqual(0, report.ExportedRecords);
+            Assert.AreEqual(failure.Message, report.Failures[0].Error);
+            AssertFileContent(exportRoot, "UnitTests.CanceledFailure", "old complete record");
+            Assert.IsFalse(File.Exists(GetRecordPath(exportRoot, "UnitTests.Unvisited")));
+            overrides.Verify(x => x.BuildRecordOverride(It.IsAny<TweakDBID>()), Times.Once);
+            var saved = await File.ReadAllTextAsync(Path.Combine(exportRoot, TweakXLExportPathHelper.ReportFileName));
+            StringAssert.Contains(saved, "canceled: true");
+            StringAssert.Contains(saved, "failedRecords: 1");
+            StringAssert.Contains(saved, "fixture.tmp");
+            Assert.AreEqual(0, Directory.GetFiles(exportRoot, "*.tmp", SearchOption.AllDirectories).Length);
+        }
+        finally
+        {
+            DeleteTempDirectory(exportRoot);
+        }
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ExportAsync_CancellationBeforeWrite_PreservesDestinationAndWritesCanceledReport(bool existing)
+    {
+        var exportRoot = CreateTempDirectory();
+        try
+        {
+            using var cancellation = new CancellationTokenSource();
+            var service = CreateService(["UnitTests.Canceled", "UnitTests.Unvisited"], out _, out var overrides);
+            var destination = GetRecordPath(exportRoot, "UnitTests.Canceled");
+            if (existing)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                await File.WriteAllTextAsync(destination, "old complete record");
+            }
+            var reportPath = Path.Combine(exportRoot, TweakXLExportPathHelper.ReportFileName);
+            await File.WriteAllTextAsync(reportPath, "old report");
+            overrides.Setup(x => x.SerializeRecordOverride(It.IsAny<TweakXL>(), It.IsAny<TweakXLSerializationDiagnostics>()))
+                .Returns((TweakXL _, TweakXLSerializationDiagnostics _) =>
+                {
+                    cancellation.Cancel();
+                    return "canceled record";
+                });
+
+            var report = await service.ExportAsync(new TweakXLExportOptions
+            {
+                ExportRoot = exportRoot,
+                OverwriteExisting = true
+            }, cancellationToken: cancellation.Token);
+
+            Assert.IsTrue(report.Canceled);
+            Assert.AreEqual(0, report.ExportedRecords);
+            Assert.AreEqual(0, report.FailedRecords);
+            if (existing)
+            {
+                AssertFileContent(exportRoot, "UnitTests.Canceled", "old complete record");
+            }
+            else
+            {
+                Assert.IsFalse(File.Exists(destination));
+            }
+            Assert.IsFalse(File.Exists(GetRecordPath(exportRoot, "UnitTests.Unvisited")));
+            StringAssert.Contains(await File.ReadAllTextAsync(reportPath), "canceled: true");
+            Assert.AreEqual(0, Directory.GetFiles(exportRoot, "*.tmp", SearchOption.AllDirectories).Length);
+        }
+        finally
+        {
+            DeleteTempDirectory(exportRoot);
+        }
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_ReplacementFailure_PreservesRecordAndContinues()
+    {
+        var exportRoot = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(["UnitTests.Locked", "UnitTests.Next"]);
+            var destination = GetRecordPath(exportRoot, "UnitTests.Locked");
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            await File.WriteAllTextAsync(destination, "old complete record");
+            TweakXLExportReport report;
+            // Readers without delete sharing prevent Windows from replacing this file.
+            using (var locked = new FileStream(destination, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                report = await service.ExportAsync(new TweakXLExportOptions
+                {
+                    ExportRoot = exportRoot,
+                    OverwriteExisting = true
+                });
+            }
+
+            Assert.AreEqual(1, report.ExportedRecords);
+            Assert.AreEqual(1, report.FailedRecords);
+            Assert.AreEqual("UnitTests.Locked", report.Failures[0].RecordName);
+            AssertFileContent(exportRoot, "UnitTests.Locked", "old complete record");
+            AssertFileContent(exportRoot, "UnitTests.Next", "yaml:UnitTests.Next");
+            Assert.IsTrue(File.Exists(Path.Combine(exportRoot, TweakXLExportPathHelper.ReportFileName)));
+            Assert.AreEqual(0, Directory.GetFiles(exportRoot, "*.tmp", SearchOption.AllDirectories).Length);
+        }
+        finally
+        {
+            DeleteTempDirectory(exportRoot);
+        }
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_NoOverwriteRace_PreservesNewlyCreatedRecord()
+    {
+        var exportRoot = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(["UnitTests.Race"], out _, out var overrides);
+            var destination = GetRecordPath(exportRoot, "UnitTests.Race");
+            overrides.Setup(x => x.SerializeRecordOverride(It.IsAny<TweakXL>(), It.IsAny<TweakXLSerializationDiagnostics>()))
+                .Returns((TweakXL _, TweakXLSerializationDiagnostics _) =>
+                {
+                    File.WriteAllText(destination, "competing record");
+                    return "our record";
+                });
+
+            var report = await service.ExportAsync(new TweakXLExportOptions { ExportRoot = exportRoot });
+
+            Assert.AreEqual(0, report.ExportedRecords);
+            Assert.AreEqual(1, report.FailedRecords);
+            AssertFileContent(exportRoot, "UnitTests.Race", "competing record");
+            Assert.AreEqual(0, Directory.GetFiles(exportRoot, "*.tmp", SearchOption.AllDirectories).Length);
+        }
+        finally
+        {
+            DeleteTempDirectory(exportRoot);
+        }
+    }
+
+    [TestMethod]
+    public async Task ExportAsync_ReportReplacementFailure_PreservesPreviousReport()
+    {
+        var exportRoot = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(["UnitTests.ReportFailure"]);
+            var reportPath = Path.Combine(exportRoot, TweakXLExportPathHelper.ReportFileName);
+            await File.WriteAllTextAsync(reportPath, "old complete report");
+            using (var locked = new FileStream(reportPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                Exception? writeError = null;
+                try
+                {
+                    await service.ExportAsync(new TweakXLExportOptions { ExportRoot = exportRoot });
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    writeError = ex;
+                }
+                Assert.IsNotNull(writeError, "A locked report must prevent publication.");
+            }
+
+            Assert.AreEqual("old complete report", await File.ReadAllTextAsync(reportPath));
+            AssertFileContent(exportRoot, "UnitTests.ReportFailure", "yaml:UnitTests.ReportFailure");
+            Assert.AreEqual(0, Directory.GetFiles(exportRoot, "*.tmp", SearchOption.AllDirectories).Length);
+        }
+        finally
+        {
+            DeleteTempDirectory(exportRoot);
+        }
+    }
+
+    [TestMethod]
     public async Task ExportAsync_IncludesInlineRecordsWhenEnabled()
     {
         var exportRoot = CreateTempDirectory();
@@ -398,8 +597,8 @@ public class TweakXLBulkExportServiceTests
             .Setup(x => x.BuildRecordOverride(It.IsAny<TweakDBID>()))
             .Returns((TweakDBID id) => new TweakXL { ID = id });
         recordOverrideService
-            .Setup(x => x.SerializeRecordOverride(It.IsAny<TweakXL>()))
-            .Returns((TweakXL txl) => $"yaml:{txl.ID.GetResolvedText()}");
+            .Setup(x => x.SerializeRecordOverride(It.IsAny<TweakXL>(), It.IsAny<TweakXLSerializationDiagnostics>()))
+            .Returns((TweakXL txl, TweakXLSerializationDiagnostics _) => $"yaml:{txl.ID.GetResolvedText()}");
 
         return new TweakXLBulkExportService(tweakDbService.Object, recordOverrideService.Object);
     }

@@ -1,3 +1,4 @@
+using System;
 using WolvenKit.App.Models;
 using WolvenKit.Common.Services;
 using WolvenKit.Core.Extensions;
@@ -36,10 +37,15 @@ public class TweakXLRecordOverrideService : ITweakXLRecordOverrideService
         return txl;
     }
 
-    public string SerializeRecordOverride(TweakXL txl)
+    public string SerializeRecordOverride(TweakXL txl) =>
+        SerializeRecordOverride(txl, new TweakXLSerializationDiagnostics());
+
+    public string SerializeRecordOverride(TweakXL txl, TweakXLSerializationDiagnostics diagnostics)
     {
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
         var serializer = new SerializerBuilder()
-            .WithTypeConverter(new TweakXLYamlTypeConverter(_locKeyService, _tweakDBService))
+            .WithTypeConverter(new TweakXLYamlTypeConverter(_locKeyService, _tweakDBService, diagnostics))
             .WithIndentedSequences()
             .Build();
 

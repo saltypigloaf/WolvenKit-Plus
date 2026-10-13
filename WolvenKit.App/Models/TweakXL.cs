@@ -197,11 +197,16 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
 {
     private readonly ILocKeyService _locKeyService;
     private readonly ITweakDBService _tweakDBService;
+    private readonly TweakXLSerializationDiagnostics _diagnostics;
 
-    public TweakXLYamlTypeConverter(ILocKeyService locKeyService, ITweakDBService tweakDBService)
+    public TweakXLYamlTypeConverter(
+        ILocKeyService locKeyService,
+        ITweakDBService tweakDBService,
+        TweakXLSerializationDiagnostics? diagnostics = null)
     {
         _locKeyService = locKeyService;
         _tweakDBService = tweakDBService;
+        _diagnostics = diagnostics ?? new TweakXLSerializationDiagnostics();
     }
 
     public bool Accepts(Type type) => type == typeof(TweakXLFile);
@@ -399,8 +404,12 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
                     case IRedInteger integer:
                         emitter.Emit(new Scalar(integer.ToString(CultureInfo.InvariantCulture)));
                         break;
-                    default:
+                    case CString:
+                    case CBool:
                         emitter.Emit(new Scalar(redType.ToString().NotNull()));
+                        break;
+                    default:
+                        emitter.Emit(new Scalar(GetFallbackScalar(redType)));
                         break;
                 }
             }
@@ -412,6 +421,50 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
             emitter.Emit(new SequenceStart(null, null, false, SequenceStyle.Flow));
             emitter.Emit(new SequenceEnd());
         }
+    }
+
+    private string GetFallbackScalar(object? value)
+    {
+        if (value is null)
+        {
+            throw UnsupportedValue(value, "No scalar ToString() implementation is available.");
+        }
+
+        // Bind the actual object.ToString virtual slot; name-based reflection can select a
+        // hidden or generic method even though the call would still emit the default type name.
+        Func<string?> getScalar = value.ToString;
+        var declaringType = getScalar.Method.DeclaringType;
+        if (declaringType == typeof(object) || declaringType == typeof(ValueType))
+        {
+            throw UnsupportedValue(value, "No scalar ToString() implementation is available.");
+        }
+
+        string? scalar;
+        try
+        {
+            scalar = getScalar();
+        }
+        catch (Exception ex)
+        {
+            throw UnsupportedValue(value, "Scalar ToString() conversion failed.", ex);
+        }
+
+        if (scalar is null)
+        {
+            throw UnsupportedValue(value, "Scalar ToString() conversion returned null.");
+        }
+
+        // Preserves the legacy scalar text, but does not claim TweakXL compatibility.
+        _diagnostics.RecordFallback(value.GetType());
+        return scalar;
+    }
+
+    private NotSupportedException UnsupportedValue(object? value, string reason, Exception? innerException = null)
+    {
+        var type = value?.GetType();
+        _diagnostics.RecordUnsupported(type);
+        return new NotSupportedException(
+            $"Unsupported TweakXL value type '{type?.FullName ?? "<null>"}': {reason}", innerException);
     }
 
     // TODO: Write a ChainedEventEmitter for the style switching
@@ -497,11 +550,15 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
                         case IRedArray redArray:
                             WriteREDArray(emitter, redArray, propertyToWrite);
                             break;
-                        // TODO: Quaternion
-                        // CString, CFloat, CBool, CInt32
-                        default:
+                        case CString:
+                        case CBool:
                             emitter.Emit(new Scalar(propertyToWrite));
                             emitter.Emit(new Scalar(propertyValue.NotNull().ToString().NotNull()));
+                            break;
+                        default:
+                            var scalar = GetFallbackScalar(propertyValue);
+                            emitter.Emit(new Scalar(propertyToWrite));
+                            emitter.Emit(new Scalar(scalar));
                             break;
                     }
 
@@ -510,6 +567,10 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
                 {
                     emitter.Emit(new MappingEnd());
                 }
+            }
+            else
+            {
+                throw UnsupportedValue(txlEntry, "This TweakXL item has no YAML writer.");
             }
         }
         emitter.Emit(new MappingEnd());
