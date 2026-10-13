@@ -1,0 +1,40 @@
+{
+  "validatedOn": "2026-10-13",
+  "gameProductVersion": "2.31",
+  "wolvenKitBaseVersion": "9.1.0",
+  "databaseFile": "tweakdb_ep1.bin",
+  "databaseBytes": 48192743,
+  "databaseSha256": "89c7ee678c1366d4c289edc78beaa60ce3d64bf44b300fc3902adc94f6ac14c5",
+  "recordCount": 193354,
+  "resolvedRecordNames": 193354,
+  "inlineRecordCount": 121037,
+  "recordTypeCount": 843,
+  "sourceFlatCount": 3306462,
+  "sourceQueryCount": 459,
+  "sourceGroupTagCount": 5862,
+  "exportedRecordCount": 193354,
+  "failedRecordCount": 0,
+  "skippedRecordCount": 0,
+  "parsedRecordYamlCount": 193354,
+  "parsedInlineRecordCount": 121037,
+  "yamlSyntaxFailures": 0,
+  "recordIdentityOrTypeFailures": 0,
+  "missingRecordNames": 0,
+  "arrayPropertiesChecked": 854451,
+  "arrayLengthMismatches": 0,
+  "unresolvedTweakDbReferencePlaceholders": 0,
+  "recordYamlBytes": 155078836,
+  "focusedTestsPassed": 50,
+  "desktopBuildSucceeded": true,
+  "beforeFix": {
+    "recordsWithoutNamedMapping": 11,
+    "inlineRecordsWithoutNamedMapping": 8,
+    "arrayLengthMismatches": 408
+  },
+  "limitations": [
+    "Scalar values, resource references, and omitted flats were not fully audited.",
+    "Standalone flats, queries, and group tags were not separately exported.",
+    "In-game TweakXL loading was not tested.",
+    "Exporter fallback and unsupported-type diagnostics remain unfinished."
+  ]
+}

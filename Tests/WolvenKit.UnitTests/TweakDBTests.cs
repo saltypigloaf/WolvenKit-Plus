@@ -15,6 +15,24 @@ namespace WolvenKit.UnitTests
         private static readonly RecyclableMemoryStreamManager s_streamManager = new();
 
         [TestMethod]
+        public void GetRecordType_ResolvesNamedAndNumericIds_AndExcludesFlats()
+        {
+            var db = new TweakDB();
+            db.Add("UnitTests.LookupQuality", new gamedataQuality_Record { Value = 7 });
+            const ulong numericId = 0x0000000B12345678UL;
+            db.Records.Add(numericId, typeof(gamedataPhotoModeBackground_Record));
+            db.Add("UnitTests.LookupFlat", (CInt32)42);
+
+            Assert.AreEqual(typeof(gamedataQuality_Record), db.GetRecordType("UnitTests.LookupQuality"));
+            Assert.AreEqual(typeof(gamedataPhotoModeBackground_Record), db.GetRecordType(numericId));
+            Assert.IsNull(db.GetRecordType("UnitTests.LookupFlat"));
+            Assert.IsNull(db.GetRecordType("UnitTests.MissingRecord"));
+            Assert.IsNull(db.GetFullRecord("UnitTests.MissingRecord"));
+            var record = (gamedataQuality_Record)db.GetFullRecord("UnitTests.LookupQuality")!;
+            Assert.AreEqual((CInt32)7, record.Value);
+        }
+
+        [TestMethod]
         public void Serialize_Fundamentals() =>
             // Parameterized tests do not work, do our own thing then.
             SerializeAndAssert(new List<(IRedType value, byte[] expected)>

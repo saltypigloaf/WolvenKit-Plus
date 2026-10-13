@@ -347,6 +347,14 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
             {
                 switch (redType)
                 {
+                    // Array positions are meaningful; empty values must occupy a slot.
+                    case CName cName when cName == CName.Empty:
+                    case TweakDBID tweakDBID when tweakDBID == TweakDBID.Empty:
+                        emitter.Emit(new Scalar("None"));
+                        break;
+                    case gamedataLocKeyWrapper locKeyWrapper when locKeyWrapper.Key == 0:
+                        emitter.Emit(new Scalar("LocKey#0"));
+                        break;
                     case CName cName:
                         WriteCName(emitter, cName);
                         break;
@@ -399,7 +407,9 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
             // TODO: ViewModel probably needs to build ITweakXLItem for appends, etc.
             if (txlEntry is TweakXL txl)
             {
-                if (txl.Properties.Count > 0)
+                var isRecord = txl.Properties.Count > 0 ||
+                    (txl.Value is null && (txl.Type != CString.Empty || txl.Base != TweakDBID.Empty));
+                if (isRecord)
                 {
                     emitter.Emit(new Scalar(null, txlEntry.ID.GetResolvedText().NotNull()));
                     emitter.Emit(new MappingStart(null, null, false, MappingStyle.Block));
@@ -466,7 +476,7 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
                     }
 
                 }
-                if (txl.Properties.Count > 0)
+                if (isRecord)
                 {
                     emitter.Emit(new MappingEnd());
                 }

@@ -1,9 +1,11 @@
 # WolvenKit Plus: TweakXL bulk exporter
 
 Status: 2026-10-13. The recovered exporter compiles on WolvenKit 9.1.0, and its
-35 focused tests pass. A 1,009-record sample from an actual Cyberpunk 2077 2.31
-database exports successfully, including 334 inline records. Full database
-completeness and in-game loading have not yet been verified.
+50 focused tests pass. All 193,354 records from an actual Cyberpunk 2077 2.31
+database export successfully, including 121,037 inline records. An independent
+audit found no missing record names, type mismatches, YAML syntax failures,
+or array-length mismatches. Scalar-value completeness and in-game loading have
+not yet been verified.
 
 ## Source and branches
 
@@ -29,7 +31,7 @@ Run these commands from the repository root:
 ```powershell
 dotnet build .\WolvenKit\WolvenKit.csproj --configuration Debug --disable-build-servers -p:Platform=x64 -p:UseSharedCompilation=false -p:RestoreDisableParallel=true -m:1 -nr:false
 
-dotnet test .\Tests\WolvenKit.UnitTests\WolvenKit.UnitTests.csproj --disable-build-servers --filter "FullyQualifiedName~TweakXL|FullyQualifiedName~TweakDBServiceTests" -p:Platform=x64 -p:UseSharedCompilation=false -m:1 -nr:false
+dotnet test .\Tests\WolvenKit.UnitTests\WolvenKit.UnitTests.csproj --disable-build-servers --filter "FullyQualifiedName~TweakXL|FullyQualifiedName~TweakDB" -p:Platform=x64 -p:UseSharedCompilation=false -m:1 -nr:false
 ```
 
 The desktop build output is under
@@ -40,7 +42,7 @@ that broke compiler arguments and produced CS1504 errors. Keeping that property
 on one line fixed the failure without changing its namespace entries or
 disabling analyzers. The successful desktop rebuild reported zero warnings and
 zero errors. The earlier test compilation emitted nullable warnings from
-unchanged upstream RED4 sources; all 35 selected tests executed and passed.
+unchanged upstream RED4 sources; all 50 selected tests executed and passed.
 
 ## Current exporter behavior
 
@@ -56,6 +58,10 @@ unchanged upstream RED4 sources; all 35 selected tests executed and passed.
 - Single-record and bulk export share the same record serializer.
 - A missing localization text entry preserves the original numeric `LocKey#`
   reference instead of failing the entire record's export.
+- Typed records with no properties retain their record name and `$type` mapping.
+- Empty CName, TweakDBID, and localization entries retain their array positions.
+- Record type lookup uses the existing ID index instead of scanning every record
+  for each exported file.
 
 This is a record exporter. It does not separately dump all standalone flats,
 queries, or group tags, and it does not recursively embed referenced records
@@ -86,16 +92,47 @@ Preserving the numeric key fixed that failure. Regression tests cover scalar
 and array localization keys with and without text, plus explicitly enabled
 inline export, including nested inline names.
 
+### Full record export
+
+The first full audit exposed two errors that the exporter's successful-file
+count did not detect:
+
+- Eleven records (eight inline) had no properties, so their YAML contained only
+  a top-level `$type` and lost the record name. Typed empty records now retain
+  the enclosing named mapping.
+- In 408 arrays, empty CName or TweakDBID entries were omitted, shifting later
+  entries. Empty array positions are now written explicitly; zero localization
+  keys are preserved too. The representation follows the upstream
+  [TweakXL value reader](https://github.com/psiberx/cp2077-tweak-xl/blob/f8da6be4fb7b8340d5744d822a85de1400f2cafb/src/App/Tweaks/Declarative/Yaml/YamlReader.Values.cpp).
+
+The full run also exposed repeated linear scans in `TweakDB.GetRecordType`.
+Using the existing record-ID dictionary removes those scans. A fresh complete
+export after all fixes took about 2 minutes 19 seconds on the validation machine.
+
+The final independent audit checked every generated record file:
+
+- 193,354 requested, exported, and parsed records; zero failures or skips.
+- 121,037 inline records present; 843 record types represented.
+- Zero missing, duplicate, or unknown record names, and zero type mismatches.
+- 854,451 array-valued properties checked; zero array-length mismatches.
+- Zero unresolved `<TDBID:...>` reference placeholders observed.
+- 155,078,836 bytes of record YAML, excluding the report.
+
+These checks do not independently verify every scalar value, resource reference,
+or omitted flat. The export report's fallback/unsupported-type arrays remain
+unfinished and must not be treated as proof that all types are supported.
+Machine-readable results are in [validation-2.31.json](validation-2.31.json).
+
 ## Next validation
 
-1. Export the full 2.31 record set with inline records enabled and retain the
-   report. The successful sample does not prove that every record exports.
-2. Compare actual flat values and cross-record references against the YAML,
-   especially for the previously reported missing inline items.
+1. Compare scalar values, resource references, and omitted flats against the
+   actual database, extending the completed identity and array-length audit.
+2. Determine standalone-flat coverage and add separate queries/group-tag exports
+   if a complete database reference is required.
 3. Validate a small exported set through TweakXL in game before treating the
    output as runtime-tested.
 4. Resolve unsupported value handling and populate the currently unfinished
    fallback/unsupported-type diagnostics before treating the report as a
    completeness audit.
 
-No in-game load test or full 2.31 export has been performed.
+The full 2.31 record export is complete. No in-game load test has been performed.

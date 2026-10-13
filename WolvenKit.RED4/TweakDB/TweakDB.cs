@@ -95,18 +95,7 @@ public class TweakDB
     public List<TweakDBID> GetQueries() => Queries.GetRecords();
     public List<TweakDBID> GetGroupTags() => GroupTags.GetRecords();
 
-    public Type? GetRecordType(TweakDBID targetId)
-    {
-        foreach (var (id, type) in Records)
-        {
-            if (id == targetId)
-            {
-                return type;
-            }
-        }
-
-        return null;
-    }
+    public Type? GetRecordType(TweakDBID targetId) => Records.GetRecord((ulong)targetId);
 
     public gamedataTweakDBRecord? GetFullRecord(TweakDBID targetId)
     {

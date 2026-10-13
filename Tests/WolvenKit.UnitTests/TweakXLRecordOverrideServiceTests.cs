@@ -18,6 +18,59 @@ namespace WolvenKit.UnitTests;
 public class TweakXLRecordOverrideServiceTests
 {
     [TestMethod]
+    public void SerializeRecordOverride_KeepsNameForRecordWithoutProperties()
+    {
+        var service = new TweakXLRecordOverrideService(new Mock<ILocKeyService>().Object, CreateTweakDbService());
+        var record = new TweakXL { ID = "UnitTests.Empty_inline0", Type = "gamedataCPOItemCategoryBase_Record" };
+        var yaml = new YamlStream();
+        using var reader = new StringReader(service.SerializeRecordOverride(record));
+        yaml.Load(reader);
+        var root = (YamlMappingNode)yaml.Documents[0].RootNode;
+        Assert.AreEqual(1, root.Children.Count);
+        var properties = (YamlMappingNode)root.Children[new YamlScalarNode("UnitTests.Empty_inline0")];
+        Assert.AreEqual("gamedataCPOItemCategoryBase_Record", ((YamlScalarNode)properties.Children[new YamlScalarNode("$type")]).Value);
+    }
+
+    [TestMethod]
+    public void SerializeRecordOverride_PreservesEmptyArrayPositions()
+    {
+        var service = new TweakXLRecordOverrideService(new Mock<ILocKeyService>().Object, CreateTweakDbService());
+        var record = new TweakXL { ID = "UnitTests.Arrays", Type = "gamedataTest_Record" };
+        record.Properties.Add("names", new CArray<CName> { "Before", CName.Empty, "After" });
+        record.Properties.Add("refs", new CArray<TweakDBID> { "Items.Before", TweakDBID.Empty, "Items.After" });
+        record.Properties.Add("locKeys", new CArray<gamedataLocKeyWrapper> { 1UL, 0UL, 2UL });
+        var yaml = new YamlStream();
+        using var reader = new StringReader(service.SerializeRecordOverride(record));
+        yaml.Load(reader);
+        var root = (YamlMappingNode)yaml.Documents[0].RootNode;
+        var properties = (YamlMappingNode)root.Children[new YamlScalarNode("UnitTests.Arrays")];
+        AssertSequence("names", "Before", "None", "After");
+        AssertSequence("refs", "Items.Before", "None", "Items.After");
+        AssertSequence("locKeys", "LocKey#1", "LocKey#0", "LocKey#2");
+
+        void AssertSequence(string property, params string[] expected)
+        {
+            var sequence = (YamlSequenceNode)properties.Children[new YamlScalarNode(property)];
+            Assert.AreEqual(expected.Length, sequence.Children.Count);
+            for (var i = 0; i < expected.Length; i++)
+                Assert.AreEqual(expected[i], ((YamlScalarNode)sequence.Children[i]).Value);
+        }
+    }
+
+    [TestMethod]
+    public void SerializeRecordOverride_StillWritesStandaloneFlatWithoutRecordWrapper()
+    {
+        var service = new TweakXLRecordOverrideService(new Mock<ILocKeyService>().Object, CreateTweakDbService());
+        var flat = new TweakXL { ID = "UnitTests.Value", Value = (CInt32)42 };
+        var yaml = new YamlStream();
+        using var reader = new StringReader(service.SerializeRecordOverride(flat));
+        yaml.Load(reader);
+        var root = (YamlMappingNode)yaml.Documents[0].RootNode;
+        Assert.AreEqual(1, root.Children.Count);
+        Assert.AreEqual("42", ((YamlScalarNode)root.Children[new YamlScalarNode("UnitTests.Value")]).Value);
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void SerializeRecordOverride_PreservesLocalizationKeysWithOrWithoutText(bool hasText)
