@@ -278,14 +278,14 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
             emitter.Emit(new Scalar(property));
         }
 
-        // Need an explicit check, otherwise e.g. Character.q305_6th_street_mb will throw exceptions
+        // Preserve the numeric hash when its depot path is absent from the name tables.
         if (raRef.IsSet && raRef.DepotPath.GetResolvedText() is string str)
         {
             emitter.Emit(new Scalar(str).NotNull());
         }
         else
         {
-            emitter.Emit(new Scalar(string.Empty));
+            emitter.Emit(new Scalar($"ResRef({raRef.DepotPath.GetRedHash().ToString(CultureInfo.InvariantCulture)})"));
         }
     }
 
@@ -337,6 +337,23 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
         emitter.Emit(new MappingEnd());
     }
 
+    private void WriteEulerAngles(IEmitter emitter, EulerAngles angles, string property = "")
+    {
+        if (!string.IsNullOrWhiteSpace(property))
+        {
+            emitter.Emit(new Scalar(property));
+        }
+
+        emitter.Emit(new MappingStart(null, null, false, MappingStyle.Flow));
+        emitter.Emit(new Scalar("roll"));
+        emitter.Emit(new Scalar(angles.Roll.ToString(CultureInfo.InvariantCulture)));
+        emitter.Emit(new Scalar("pitch"));
+        emitter.Emit(new Scalar(angles.Pitch.ToString(CultureInfo.InvariantCulture)));
+        emitter.Emit(new Scalar("yaw"));
+        emitter.Emit(new Scalar(angles.Yaw.ToString(CultureInfo.InvariantCulture)));
+        emitter.Emit(new MappingEnd());
+    }
+
     private void WriteREDArray(IEmitter emitter, IRedArray redArray, string property)
     {
         emitter.Emit(new Scalar(property));
@@ -369,6 +386,12 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
                         break;
                     case Vector3 vector3:
                         WriteVector3(emitter, vector3);
+                        break;
+                    case EulerAngles angles:
+                        WriteEulerAngles(emitter, angles);
+                        break;
+                    case CFloat number:
+                        emitter.Emit(new Scalar(number.ToString(CultureInfo.InvariantCulture)));
                         break;
                     case gamedataLocKeyWrapper locKeyWrapper:
                         WriteLocKey(emitter, locKeyWrapper);
@@ -456,6 +479,13 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
                         case Vector3 vector3:
                             WriteVector3(emitter, vector3, propertyToWrite);
                             break;
+                        case EulerAngles angles:
+                            WriteEulerAngles(emitter, angles, propertyToWrite);
+                            break;
+                        case CFloat number:
+                            emitter.Emit(new Scalar(propertyToWrite));
+                            emitter.Emit(new Scalar(number.ToString(CultureInfo.InvariantCulture)));
+                            break;
                         case gamedataLocKeyWrapper locKeyWrapper:
                             WriteLocKey(emitter, locKeyWrapper, propertyToWrite);
                             break;
@@ -467,7 +497,7 @@ public class TweakXLYamlTypeConverter : IYamlTypeConverter
                         case IRedArray redArray:
                             WriteREDArray(emitter, redArray, propertyToWrite);
                             break;
-                        // TODO: EulerAngles & Quaterion
+                        // TODO: Quaternion
                         // CString, CFloat, CBool, CInt32
                         default:
                             emitter.Emit(new Scalar(propertyToWrite));

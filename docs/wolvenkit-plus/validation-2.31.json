@@ -23,8 +23,8 @@
   "arrayPropertiesChecked": 854451,
   "arrayLengthMismatches": 0,
   "unresolvedTweakDbReferencePlaceholders": 0,
-  "recordYamlBytes": 155078836,
-  "focusedTestsPassed": 50,
+  "recordYamlBytes": 155220546,
+  "focusedTestsPassed": 52,
   "desktopBuildSucceeded": true,
   "beforeFix": {
     "recordsWithoutNamedMapping": 11,
@@ -32,9 +32,26 @@
     "arrayLengthMismatches": 408
   },
   "limitations": [
-    "Scalar values, resource references, and omitted flats were not fully audited.",
     "Standalone flats, queries, and group tags were not separately exported.",
+    "18 flat names are unresolved and cannot be assigned to records by name.",
+    "Empty CName, TweakDBID, and localization scalars are intentionally omitted; array positions are retained.",
+    "3,218 extra model properties have no stored source flat and are outside source-value comparison.",
     "In-game TweakXL loading was not tested.",
     "Exporter fallback and unsupported-type diagnostics remain unfinished."
-  ]
+  ],
+  "valueAudit": {
+    "recordPropertyFlats": 3230398,
+    "sourcePropertiesChecked": 3230398,
+    "valueComparisons": 4441024,
+    "resourceReferencesChecked": 47493,
+    "valueMismatches": 0,
+    "intentionalEmptyScalarOmissions": {
+      "CName": 190184,
+      "TweakDBID": 385498,
+      "localizationKey": 40548
+    },
+    "extraModelProperties": 3218,
+    "standaloneFlats": 76046,
+    "unresolvedFlatNames": 18
+  }
 }

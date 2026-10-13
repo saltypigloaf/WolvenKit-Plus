@@ -18,6 +18,62 @@ namespace WolvenKit.UnitTests;
 public class TweakXLRecordOverrideServiceTests
 {
     [TestMethod]
+    public void SerializeRecordOverride_PreservesUnknownAndEmptyResourceHashes()
+    {
+        var service = new TweakXLRecordOverrideService(new Mock<ILocKeyService>().Object, CreateTweakDbService());
+        var record = new TweakXL { ID = "UnitTests.ResourceHashes", Type = "gamedataTest_Record" };
+        const ulong unknownHash = 1345192758933641138;
+        record.Properties.Add("resource", new CResourceAsyncReference<CResource>((ResourcePath)unknownHash));
+        record.Properties.Add("resources", new CArray<CResourceAsyncReference<CResource>> {
+            new((ResourcePath)unknownHash), new(ResourcePath.Empty), new((ResourcePath)"base\\unit_test.mesh")
+        });
+        var yaml = new YamlStream();
+        using var reader = new StringReader(service.SerializeRecordOverride(record)); yaml.Load(reader);
+        var properties = (YamlMappingNode)((YamlMappingNode)yaml.Documents[0].RootNode).Children[new YamlScalarNode("UnitTests.ResourceHashes")];
+        Assert.AreEqual("ResRef(1345192758933641138)", ((YamlScalarNode)properties.Children[new YamlScalarNode("resource")]).Value);
+        var array = (YamlSequenceNode)properties.Children[new YamlScalarNode("resources")];
+        Assert.AreEqual(3, array.Children.Count);
+        Assert.AreEqual("ResRef(1345192758933641138)", ((YamlScalarNode)array.Children[0]).Value);
+        Assert.AreEqual("ResRef(0)", ((YamlScalarNode)array.Children[1]).Value);
+        Assert.AreEqual("base\\unit_test.mesh", ((YamlScalarNode)array.Children[2]).Value);
+    }
+
+    [TestMethod]
+    public void SerializeRecordOverride_PreservesAnglesAndFloatsAcrossCultures()
+    {
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("de-DE");
+            var service = new TweakXLRecordOverrideService(new Mock<ILocKeyService>().Object, CreateTweakDbService());
+            var record = new TweakXL { ID = "UnitTests.Angles", Type = "gamedataTest_Record" };
+            var angles = new EulerAngles { Roll = 1.25f, Pitch = -2.5f, Yaw = 30.75f };
+            record.Properties.Add("rotation", angles);
+            record.Properties.Add("rotations", new CArray<EulerAngles> { angles });
+            record.Properties.Add("number", (CFloat)1.25f);
+            record.Properties.Add("numbers", new CArray<CFloat> { 1.25f, -2.5f });
+            var yaml = new YamlStream();
+            using var reader = new StringReader(service.SerializeRecordOverride(record)); yaml.Load(reader);
+            var properties = (YamlMappingNode)((YamlMappingNode)yaml.Documents[0].RootNode).Children[new YamlScalarNode("UnitTests.Angles")];
+            CheckAngles((YamlMappingNode)properties.Children[new YamlScalarNode("rotation")]);
+            CheckAngles((YamlMappingNode)((YamlSequenceNode)properties.Children[new YamlScalarNode("rotations")]).Children[0]);
+            Assert.AreEqual("1.25", ((YamlScalarNode)properties.Children[new YamlScalarNode("number")]).Value);
+            var numbers = (YamlSequenceNode)properties.Children[new YamlScalarNode("numbers")];
+            Assert.AreEqual("1.25", ((YamlScalarNode)numbers.Children[0]).Value);
+            Assert.AreEqual("-2.5", ((YamlScalarNode)numbers.Children[1]).Value);
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+
+        static void CheckAngles(YamlMappingNode mapping)
+        {
+            Assert.AreEqual(3, mapping.Children.Count);
+            Assert.AreEqual("1.25", ((YamlScalarNode)mapping.Children[new YamlScalarNode("roll")]).Value);
+            Assert.AreEqual("-2.5", ((YamlScalarNode)mapping.Children[new YamlScalarNode("pitch")]).Value);
+            Assert.AreEqual("30.75", ((YamlScalarNode)mapping.Children[new YamlScalarNode("yaw")]).Value);
+        }
+    }
+
+    [TestMethod]
     public void SerializeRecordOverride_KeepsNameForRecordWithoutProperties()
     {
         var service = new TweakXLRecordOverrideService(new Mock<ILocKeyService>().Object, CreateTweakDbService());

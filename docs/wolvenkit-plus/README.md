@@ -116,22 +116,48 @@ The final independent audit checked every generated record file:
 - Zero missing, duplicate, or unknown record names, and zero type mismatches.
 - 854,451 array-valued properties checked; zero array-length mismatches.
 - Zero unresolved `<TDBID:...>` reference placeholders observed.
-- 155,078,836 bytes of record YAML, excluding the report.
+- 155,220,546 bytes of record YAML, excluding the report, after the value-fidelity fixes below.
 
-These checks do not independently verify every scalar value, resource reference,
-or omitted flat. The export report's fallback/unsupported-type arrays remain
-unfinished and must not be treated as proof that all types are supported.
-Machine-readable results are in [validation-2.31.json](validation-2.31.json).
+### Value and coverage audit
+
+A subsequent independent comparison against the source flat pool found two
+additional converter problems. Resource references whose path was not in the
+bundled name tables became empty strings, losing their numeric hash. They now
+use TweakXL's `ResRef(hash)` representation; empty references use `ResRef(0)`.
+Euler angles used a display string; they now use a mapping with `roll`, `pitch`,
+and `yaw`. Float scalars and array entries now use invariant-culture formatting.
+The representation follows the same upstream TweakXL value reader linked above.
+
+After re-exporting, the audit matched all 193,354 record identities and examined
+all 3,230,398 resolved flat properties associated with existing records. It made
+4,441,024 value comparisons, including array entries and vector/rotation
+components, with zero mismatches. All 47,493 resource references were compared by
+their numeric hash. Floats were compared by their 32-bit representation.
+
+Coverage details matter when using this as reference material:
+
+- The converter intentionally omits 190,184 empty CName scalars, 385,498 empty
+  TweakDBID scalars, and 40,548 zero localization-key scalars. Empty entries in
+  arrays are retained. The audit accounts for these omissions explicitly.
+- There are 3,218 extra YAML properties supplied by WolvenKit's record model;
+  they do not have a corresponding stored source flat and are outside the
+  source-value comparison.
+- 76,046 resolved flats are not associated with an existing record. Another
+  18 flat names are unresolved. These, 459 queries, and 5,862 group tags are
+  outside this record export.
+
+All 52 focused TweakXL/TweakDB tests pass, including unknown/empty resource hashes,
+Euler-angle mappings, and decimal formatting under `de-DE`. The desktop build
+succeeds. Machine-readable results are in
+[validation-2.31.json](validation-2.31.json).
 
 ## Next validation
 
-1. Compare scalar values, resource references, and omitted flats against the
-   actual database, extending the completed identity and array-length audit.
-2. Determine standalone-flat coverage and add separate queries/group-tag exports
+1. Add standalone-flat and separate queries/group-tag exports
    if a complete database reference is required.
-3. Validate a small exported set through TweakXL in game before treating the
+2. Validate a small exported set through TweakXL in game before treating the
    output as runtime-tested.
-4. Resolve unsupported value handling and populate the currently unfinished
+3. Resolve unsupported value handling and populate the currently unfinished
    fallback/unsupported-type diagnostics before treating the report as a
    completeness audit.
 
