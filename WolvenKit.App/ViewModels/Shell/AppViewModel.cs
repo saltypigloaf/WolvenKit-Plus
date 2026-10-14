@@ -574,6 +574,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     [NotifyCanExecuteChangedFor(nameof(PackInstallModCommand))]
     [NotifyCanExecuteChangedFor(nameof(PackInstallRunCommand))]
     [NotifyCanExecuteChangedFor(nameof(PackInstallRedModRunCommand))]
+    [NotifyCanExecuteChangedFor(nameof(HotInstallModCommand))]
     [NotifyCanExecuteChangedFor(nameof(ScanForBrokenReferencePathsCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteEmptyFoldersCommand))]
     [NotifyCanExecuteChangedFor(nameof(FindUnusedFilesCommand))]
@@ -1933,11 +1934,13 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
             return;
         }
 
-        await _gameControllerFactory.GetController().LaunchProjectAsync(profile);
-        AfterProjectPacked();
+        if (await _gameControllerFactory.GetController().LaunchProjectAsync(profile))
+        {
+            AfterProjectPacked();
+        }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanStartTask))]
     private async Task HotInstallModAsync() => await _gameControllerFactory.GetController().InstallProjectHotAsync();
 
     [RelayCommand]

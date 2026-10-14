@@ -47,6 +47,7 @@ public class RED4Controller : ObservableObject, IGameController
     private readonly IPluginService _pluginService;
     private readonly IModifierViewStateService _modifierService;
     private readonly IProjectEvents _projectEvents;
+    private int _projectOperationRunning;
 
     #endregion
 
@@ -78,13 +79,48 @@ public class RED4Controller : ObservableObject, IGameController
 
     #region Packing
 
-    public async Task<bool> InstallProjectHotAsync()
+    public Task<bool> InstallProjectHotAsync() => RunPreparedProjectOperationAsync(InstallPreparedProjectHotAsync);
+
+    private async Task<bool> RunPreparedProjectOperationAsync(Func<Cp77Project, Task<bool>> operation)
     {
-        if (_projectManager.ActiveProject is not Cp77Project currentProject)
+        if (_progressService.Status != EStatus.Ready || Interlocked.CompareExchange(ref _projectOperationRunning, 1, 0) != 0)
         {
+            _loggerService.Warning("A project operation is already running.");
             return false;
         }
 
+        _progressService.IsIndeterminate = true;
+        try
+        {
+            if (_projectManager.ActiveProject is not Cp77Project project)
+            {
+                _loggerService.Error("Cannot prepare project (no project/not cyberpunk project)!");
+                _notificationService.Error("Cannot prepare project (no project/not cyberpunk project)!");
+                return false;
+            }
+
+            // Capture the active project's root before yielding. Preparation must precede even
+            // backup/cleanup and property getters that create project output directories.
+            var projectDirectory = project.ProjectDirectory;
+            var result = await Task.Run(() => ProjectFilePreparation.ClearReadOnly(projectDirectory));
+            _loggerService.Info($"Project preparation: cleared ReadOnly on {result.FilesChanged} of {result.FilesChecked} files in '{projectDirectory}'.");
+            return await operation(project);
+        }
+        catch (Exception e)
+        {
+            _loggerService.Error(e);
+            _notificationService.Error($"Project operation aborted: {e.Message}");
+            return false;
+        }
+        finally
+        {
+            _progressService.Completed();
+            Interlocked.Exchange(ref _projectOperationRunning, 0);
+        }
+    }
+
+    private async Task<bool> InstallPreparedProjectHotAsync(Cp77Project currentProject)
+    {
         // check if plugin is installed
         if (!_pluginService.IsInstalled(EPlugin.redhottools))
         {
@@ -113,8 +149,13 @@ public class RED4Controller : ObservableObject, IGameController
             return false;
         }
 
-        // Clean all residual files
-        CleanAll();
+        // Use the captured project, and do not report success if residual output could not be removed.
+        if (!await Task.Run(() => Cleanup(currentProject, new LaunchProfile { CleanAll = true })))
+        {
+            _loggerService.Error("Hot Reload installed files, but project cleanup failed.");
+            _notificationService.Error("Hot Reload installed files, but project cleanup failed.");
+            return false;
+        }
 
         _loggerService.Success($"{currentProject.ModName} packed into {hotDirectory}");
         _notificationService.Success($"{currentProject.ModName} packed into {hotDirectory}");
@@ -213,19 +254,11 @@ public class RED4Controller : ObservableObject, IGameController
     /// Pack mod with options
     /// </summary>
     /// <returns></returns>
-    public async Task<bool> LaunchProjectAsync(LaunchProfile options)
+    public Task<bool> LaunchProjectAsync(LaunchProfile options) =>
+        RunPreparedProjectOperationAsync(project => LaunchPreparedProjectAsync(options, project));
+
+    private async Task<bool> LaunchPreparedProjectAsync(LaunchProfile options, Cp77Project cp77Proj)
     {
-        _progressService.IsIndeterminate = true;
-
-        // checks
-        if (_projectManager.ActiveProject is not Cp77Project cp77Proj)
-        {
-            _progressService.IsIndeterminate = false;
-            _loggerService.Error("Cannot pack project (no project/not cyberpunk project)!");
-            _notificationService.Error("Cannot pack project (no project/not cyberpunk project)!");
-            return false;
-        }
-
         if (!options.IsRedmod && Directory.EnumerateFiles(cp77Proj.SoundDirectory).Any())
         {
             _loggerService.Warning("This project contains custom sound files but is packed as legacy mod!");
@@ -290,10 +323,10 @@ public class RED4Controller : ObservableObject, IGameController
 
         if (options.CleanAllPostBuild && !await Task.Run(() => Cleanup(cp77Proj, options, true)))
         {
-            _loggerService.Warning("Failed to clean your project after build. The next build might fail.");
+            _loggerService.Error("Failed to clean your project after build, aborting.");
+            _notificationService.Error("Failed to clean your project after build, aborting.");
+            return false;
         }
-
-        _progressService.IsIndeterminate = false;
 
         // launch game
         if (!options.LaunchGame)
@@ -481,14 +514,14 @@ public class RED4Controller : ObservableObject, IGameController
         var dirs = Directory.GetDirectories(cp77Proj.PackedRootDirectory, "*", SearchOption.TopDirectoryOnly);
         for (var i = 0; i < dirs.Count(); i++)
         {
-            result = SafeDirectoryDelete(dirs[i], true);
+            result &= SafeDirectoryDelete(dirs[i], true);
         }
 
         //top level files
         var files = Directory.GetFiles(cp77Proj.PackedRootDirectory, "*", SearchOption.TopDirectoryOnly);
         for (var i = 0; i < files.Count(); i++)
         {
-            result = SafeFileDelete(files[i]);
+            result &= SafeFileDelete(files[i]);
         }
 
         return result;
@@ -507,6 +540,7 @@ public class RED4Controller : ObservableObject, IGameController
         }
         catch (Exception e)
         {
+            _loggerService.Error($"Failed to delete directory '{path}': {e.Message}");
             _loggerService.Error(e);
             return false;
         }
@@ -524,6 +558,7 @@ public class RED4Controller : ObservableObject, IGameController
         }
         catch (Exception e)
         {
+            _loggerService.Error($"Failed to delete file '{path}': {e.Message}");
             _loggerService.Error(e);
             return false;
         }
