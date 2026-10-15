@@ -57,6 +57,40 @@ public class ProjectPreparationOperationTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Launch_PreparesDirectoriesBeforeEmptyFolderCleanup_AndReportsSeparateCounts(bool cleanAll)
+    {
+        using var fixture = new ControllerFixture();
+        var archiveDirectory = fixture.Project.ModDirectory;
+        var leaf = Directory.CreateDirectory(Path.Combine(archiveDirectory, "2bt", "shirts_the_third", "round_neck")).FullName;
+        var retainedFile = fixture.Directory.File("project/source/archive/retained/data.bin");
+        for (var path = leaf; ; path = Path.GetDirectoryName(path)!)
+        {
+            File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly | FileAttributes.Archive);
+            if (path == fixture.Project.ProjectDirectory)
+            {
+                break;
+            }
+        }
+        var directoriesChecked = 1 + Directory.GetDirectories(fixture.Project.ProjectDirectory, "*", SearchOption.AllDirectories).Length;
+        fixture.ModTools.Setup(m => m.Pack(It.IsAny<DirectoryInfo>(), It.IsAny<DirectoryInfo>(), It.IsAny<string>()))
+            .Returns(true);
+
+        Assert.IsTrue(await fixture.Controller.LaunchProjectAsync(new LaunchProfile { CleanAll = cleanAll }));
+
+        Assert.IsFalse(Directory.Exists(Path.Combine(archiveDirectory, "2bt")));
+        Assert.AreEqual("test payload", File.ReadAllText(retainedFile));
+        Assert.IsFalse(File.GetAttributes(fixture.Project.ProjectDirectory).HasFlag(FileAttributes.ReadOnly));
+        Assert.IsFalse(File.GetAttributes(archiveDirectory).HasFlag(FileAttributes.ReadOnly));
+        var summary = $"Project preparation: cleared ReadOnly on 0 of 2 files and 6 of {directoriesChecked} directories in '{fixture.Project.ProjectDirectory}'.";
+        fixture.Logger.Verify(l => l.Info(summary), Times.Once);
+        fixture.ModTools.Verify(m => m.Pack(It.IsAny<DirectoryInfo>(), It.IsAny<DirectoryInfo>(), It.IsAny<string>()), Times.Once);
+        fixture.Settings.VerifyNoOtherCalls();
+        fixture.AssertReady();
+    }
+
+    [TestMethod]
     public async Task Launch_PreparesBeforeBackupAndCleanup_AndReplacesReadOnlyZip()
     {
         using var fixture = new ControllerFixture();

@@ -7,10 +7,10 @@ using Microsoft.Win32.SafeHandles;
 
 namespace WolvenKit.App.Helpers;
 
-/// <summary>Prepares only the active project's files, including output from previous builds.</summary>
+/// <summary>Prepares only the active project's files and directories, including previous build output.</summary>
 internal static class ProjectFilePreparation
 {
-    internal readonly record struct Result(int FilesChecked, int FilesChanged);
+    internal readonly record struct Result(int FilesChecked, int FilesChanged, int DirectoriesChecked, int DirectoriesChanged);
 
     internal static Result ClearReadOnly(string projectDirectory) => ClearReadOnly(projectDirectory, new FileSystem());
 
@@ -42,9 +42,21 @@ internal static class ProjectFilePreparation
             directories.Push(root);
             var filesChecked = 0;
             var filesChanged = 0;
+            var directoriesChecked = 0;
+            var directoriesChanged = 0;
             while (directories.TryPop(out var directory))
             {
                 currentPath = directory;
+                // The root and descendants are writable; ancestors above the root remain validation-only.
+                // Revalidate queued directories before changing attributes or enumerating their contents.
+                var directoryAttributes = fileSystem.GetAttributes(directory);
+                EnsureSafeReparsePoint(directory, directoryAttributes, fileSystem);
+                directoriesChecked++;
+                if (ClearReadOnlyAttribute(directory, directoryAttributes, fileSystem))
+                {
+                    directoriesChanged++;
+                }
+
                 // Materialize per directory so enumeration errors identify that directory.
                 foreach (var entry in fileSystem.GetEntries(directory))
                 {
@@ -70,21 +82,29 @@ internal static class ProjectFilePreparation
                     }
 
                     filesChecked++;
-                    if ((attributes & FileAttributes.ReadOnly) == 0)
+                    if (ClearReadOnlyAttribute(entry, attributes, fileSystem))
                     {
-                        continue;
+                        filesChanged++;
                     }
-                    fileSystem.SetAttributes(entry, attributes & ~FileAttributes.ReadOnly);
-                    filesChanged++;
                 }
             }
-            return new Result(filesChecked, filesChanged);
+            return new Result(filesChecked, filesChanged, directoriesChecked, directoriesChanged);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or Win32Exception or
                                   ArgumentException or NotSupportedException)
         {
             throw new IOException($"Could not prepare project path '{currentPath}': {e.Message}", e);
         }
+    }
+
+    private static bool ClearReadOnlyAttribute(string path, FileAttributes attributes, FileSystem fileSystem)
+    {
+        if ((attributes & FileAttributes.ReadOnly) == 0)
+        {
+            return false;
+        }
+        fileSystem.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+        return true;
     }
 
     private static bool IsRepositoryMetadata(string name) =>

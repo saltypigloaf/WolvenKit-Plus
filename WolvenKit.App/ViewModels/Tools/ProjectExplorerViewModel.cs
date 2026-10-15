@@ -1854,8 +1854,6 @@ public partial class ProjectExplorerViewModel : ToolViewModel
                 }
 
                 RefreshProjectData();
-
-                CheckForOneDriveInPath();
             }
             catch (Exception e)
             {
@@ -2034,20 +2032,7 @@ public partial class ProjectExplorerViewModel : ToolViewModel
             return;
         }
 
-        List<string> warningText =
-        [
-            "Hey, choom!",
-            "",
-            "Don't store Wolvenkit projects inside your OneDrive folder!",
-            "This can cause all kinds of issues!"
-        ];
-
-        DispatcherHelper.RunOnMainThread(() => _ = Interactions.ShowConfirmation((
-            string.Join('\n', warningText),
-            "OneDrive Warning",
-            WMessageBoxImage.Warning,
-            WMessageBoxButtons.Ok
-        )));
+        _loggerService.Info("Project is stored in OneDrive. Read-only attributes will be cleared automatically before packaging or installation.");
     }
 
     #endregion Project_Loading

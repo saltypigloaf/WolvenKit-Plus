@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
 using WolvenKit.App.Helpers;
+using WolvenKit.App.Models.ProjectManagement.Project;
+using WolvenKit.Core.Interfaces;
 
 namespace WolvenKit.UnitTests;
 
@@ -19,7 +22,7 @@ public class ProjectFilePreparationTests
         var projectFile = fixture.File("project/test.cpmodproj", FileAttributes.ReadOnly);
         var parent = Path.GetDirectoryName(source)!;
         Directory.SetLastWriteTimeUtc(parent, new DateTime(2020, 1, 1));
-        File.SetAttributes(parent, File.GetAttributes(parent) | FileAttributes.ReadOnly);
+        File.SetAttributes(parent, File.GetAttributes(parent) | FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System | FileAttributes.Archive);
         var directoryAttributes = File.GetAttributes(parent);
         var originalAttributes = File.GetAttributes(source);
 
@@ -27,11 +30,82 @@ public class ProjectFilePreparationTests
 
         Assert.AreEqual(3, result.FilesChanged);
         Assert.AreEqual(3, result.FilesChecked);
+        Assert.AreEqual(1, result.DirectoriesChanged);
+        Assert.AreEqual(5, result.DirectoriesChecked);
         Assert.AreEqual(originalAttributes & ~FileAttributes.ReadOnly, File.GetAttributes(source));
         Assert.IsFalse(File.GetAttributes(output).HasFlag(FileAttributes.ReadOnly));
         Assert.IsFalse(File.GetAttributes(projectFile).HasFlag(FileAttributes.ReadOnly));
-        Assert.AreEqual(directoryAttributes, File.GetAttributes(parent));
+        Assert.AreEqual(directoryAttributes & ~FileAttributes.ReadOnly, File.GetAttributes(parent));
         Assert.AreEqual("test payload", File.ReadAllText(source));
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("source/archive/empty")]
+    public void ClearReadOnly_EmptyRootAndNestedDirectories_PreservesAttributesAndAncestors(string relativeDirectory)
+    {
+        using var fixture = new ProjectPreparationDirectory();
+        var leaf = Directory.CreateDirectory(Path.Combine(fixture.Project, relativeDirectory)).FullName;
+        var originals = new Dictionary<string, FileAttributes>();
+        for (var path = leaf; ; path = Path.GetDirectoryName(path)!)
+        {
+            File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.Archive);
+            originals[path] = File.GetAttributes(path);
+            if (path == fixture.Project)
+            {
+                break;
+            }
+        }
+        // This fixture-owned directory is above the project root and must never be changed by preparation.
+        File.SetAttributes(fixture.Root, File.GetAttributes(fixture.Root) | FileAttributes.ReadOnly | FileAttributes.Archive);
+        var ancestorAttributes = File.GetAttributes(fixture.Root);
+        var fileSystem = new TestFileSystem();
+
+        var result = ProjectFilePreparation.ClearReadOnly(fixture.Project, fileSystem);
+
+        Assert.AreEqual(0, result.FilesChecked);
+        Assert.AreEqual(0, result.FilesChanged);
+        Assert.AreEqual(originals.Count, result.DirectoriesChecked);
+        Assert.AreEqual(originals.Count, result.DirectoriesChanged);
+        foreach (var (path, attributes) in originals)
+        {
+            Assert.AreEqual(attributes & ~FileAttributes.ReadOnly, File.GetAttributes(path));
+        }
+        Assert.AreEqual(ancestorAttributes, File.GetAttributes(fixture.Root));
+        CollectionAssert.DoesNotContain(fileSystem.WrittenPaths, fixture.Root);
+
+        fileSystem.WrittenPaths.Clear();
+        var repeated = ProjectFilePreparation.ClearReadOnly(fixture.Project, fileSystem);
+        Assert.AreEqual(0, repeated.DirectoriesChanged);
+        Assert.AreEqual(0, repeated.FilesChanged);
+        Assert.AreEqual(0, fileSystem.WrittenPaths.Count, "Writable directories must not have attributes rewritten.");
+    }
+
+    [TestMethod]
+    public void ClearReadOnly_ThenActualProjectEmptyFolderCleanup_RemovesReadOnlyEmptyBranch()
+    {
+        using var fixture = new ProjectPreparationDirectory();
+        var project = new Cp77Project(fixture.File("project/Test.cpmodproj"), "Test", "test");
+        var archiveDirectory = project.ModDirectory;
+        var leaf = Directory.CreateDirectory(Path.Combine(archiveDirectory, "2bt", "shirts_the_third", "round_neck")).FullName;
+        var retainedFile = fixture.File("project/source/archive/retained/data.bin");
+        for (var path = leaf; ; path = Path.GetDirectoryName(path)!)
+        {
+            File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly | FileAttributes.Archive);
+            if (path == project.ProjectDirectory)
+            {
+                break;
+            }
+        }
+
+        var result = ProjectFilePreparation.ClearReadOnly(project.ProjectDirectory);
+        project.DeleteEmptyFolders(Mock.Of<ILoggerService>());
+
+        Assert.AreEqual(6, result.DirectoriesChanged);
+        Assert.IsFalse(Directory.Exists(Path.Combine(archiveDirectory, "2bt")));
+        Assert.IsTrue(Directory.Exists(archiveDirectory));
+        Assert.IsTrue(Directory.Exists(project.ProjectDirectory));
+        Assert.AreEqual("test payload", File.ReadAllText(retainedFile));
     }
 
     [TestMethod]
@@ -63,9 +137,13 @@ public class ProjectFilePreparationTests
         using var fixture = new ProjectPreparationDirectory();
         var path = fixture.File($"project/{metadata}{(isFile ? "" : "/config")}", FileAttributes.ReadOnly | FileAttributes.Hidden);
         var original = File.GetAttributes(path);
+        var metadataPath = Path.GetFullPath(Path.Combine(fixture.Project, metadata));
+        File.SetAttributes(metadataPath, File.GetAttributes(metadataPath) | FileAttributes.ReadOnly | FileAttributes.Hidden);
+        var metadataAttributes = File.GetAttributes(metadataPath);
         fixture.File("project/source/test.bin", FileAttributes.ReadOnly);
         Assert.AreEqual(1, ProjectFilePreparation.ClearReadOnly(fixture.Project).FilesChanged);
         Assert.AreEqual(original, File.GetAttributes(path));
+        Assert.AreEqual(metadataAttributes, File.GetAttributes(metadataPath));
     }
 
     [TestMethod]
@@ -84,11 +162,24 @@ public class ProjectFilePreparationTests
         fileSystem.Tags[cloudDirectory] = tag;
         fileSystem.Tags[path] = tag;
         fileSystem.ExtraAttributes[path] = FileAttributes.Offline | (FileAttributes)0x00080000; // Pinned
+        File.SetAttributes(fixture.Project, File.GetAttributes(fixture.Project) | FileAttributes.ReadOnly | FileAttributes.Archive);
+        File.SetAttributes(cloudDirectory, File.GetAttributes(cloudDirectory) | FileAttributes.ReadOnly | FileAttributes.Archive);
+        fileSystem.ExtraAttributes[cloudDirectory] = (FileAttributes)0x00080000; // Pinned
         var original = fileSystem.GetAttributes(path);
+        var originalRoot = fileSystem.GetAttributes(fixture.Project);
+        var originalDirectory = fileSystem.GetAttributes(cloudDirectory);
 
-        Assert.AreEqual(1, ProjectFilePreparation.ClearReadOnly(fixture.Project, fileSystem).FilesChanged);
-        Assert.AreEqual(original & ~FileAttributes.ReadOnly, fileSystem.LastWrittenAttributes);
+        var result = ProjectFilePreparation.ClearReadOnly(fixture.Project, fileSystem);
+
+        Assert.AreEqual(1, result.FilesChanged);
+        Assert.AreEqual(2, result.DirectoriesChanged);
+        Assert.AreEqual(2, result.DirectoriesChecked);
+        Assert.AreEqual(original & ~FileAttributes.ReadOnly, fileSystem.WrittenAttributes[path]);
+        Assert.AreEqual(originalRoot & ~FileAttributes.ReadOnly, fileSystem.WrittenAttributes[fixture.Project]);
+        Assert.AreEqual(originalDirectory & ~FileAttributes.ReadOnly, fileSystem.WrittenAttributes[cloudDirectory]);
         Assert.IsFalse(File.GetAttributes(path).HasFlag(FileAttributes.ReadOnly));
+        Assert.IsFalse(File.GetAttributes(cloudDirectory).HasFlag(FileAttributes.ReadOnly));
+        Assert.IsFalse(File.GetAttributes(fixture.Project).HasFlag(FileAttributes.ReadOnly));
     }
 
     [TestMethod]
@@ -115,11 +206,15 @@ public class ProjectFilePreparationTests
         using var fixture = new ProjectPreparationDirectory();
         var external = fixture.File("project-outside/target.bin", FileAttributes.ReadOnly | FileAttributes.Archive);
         var original = File.GetAttributes(external);
-        var link = fixture.Junction(rootIsJunction ? "linked-project" : "project/link", Path.GetDirectoryName(external)!);
+        var externalDirectory = Path.GetDirectoryName(external)!;
+        File.SetAttributes(externalDirectory, File.GetAttributes(externalDirectory) | FileAttributes.ReadOnly | FileAttributes.Archive);
+        var originalDirectory = File.GetAttributes(externalDirectory);
+        var link = fixture.Junction(rootIsJunction ? "linked-project" : "project/link", externalDirectory);
         var root = rootIsJunction ? link : fixture.Project;
         var error = Assert.ThrowsException<IOException>(() => ProjectFilePreparation.ClearReadOnly(root));
         StringAssert.Contains(error.Message, link);
         Assert.AreEqual(original, File.GetAttributes(external));
+        Assert.AreEqual(originalDirectory, File.GetAttributes(externalDirectory));
     }
 
     [TestMethod]
@@ -180,6 +275,26 @@ public class ProjectFilePreparationTests
     }
 
     [TestMethod]
+    [DataRow("")]
+    [DataRow("blocked")]
+    public void ClearReadOnly_DirectoryAttributeFailure_IdentifiesPathAndStopsTraversal(string relativeDirectory)
+    {
+        using var fixture = new ProjectPreparationDirectory();
+        var path = Directory.CreateDirectory(Path.Combine(fixture.Project, relativeDirectory)).FullName;
+        File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly);
+        var cause = new UnauthorizedAccessException("Injected directory attribute denial");
+        var fileSystem = new TestFileSystem { FailurePath = path, FailureStage = "write", Failure = cause };
+
+        var error = Assert.ThrowsException<IOException>(() => ProjectFilePreparation.ClearReadOnly(fixture.Project, fileSystem));
+
+        StringAssert.Contains(error.Message, path);
+        StringAssert.Contains(error.Message, cause.Message);
+        Assert.AreSame(cause, error.InnerException);
+        CollectionAssert.DoesNotContain(fileSystem.EnumeratedPaths, path);
+        Assert.IsTrue(File.GetAttributes(path).HasFlag(FileAttributes.ReadOnly));
+    }
+
+    [TestMethod]
     public void ClearReadOnly_RejectsMissingRoot()
     {
         using var fixture = new ProjectPreparationDirectory();
@@ -191,9 +306,10 @@ public class ProjectFilePreparationTests
     private sealed class TestFileSystem : ProjectFilePreparation.FileSystem
     {
         public List<string> WrittenPaths { get; } = [];
+        public List<string> EnumeratedPaths { get; } = [];
         public Dictionary<string, uint> Tags { get; } = [];
         public Dictionary<string, FileAttributes> ExtraAttributes { get; } = [];
-        public FileAttributes LastWrittenAttributes { get; private set; }
+        public Dictionary<string, FileAttributes> WrittenAttributes { get; } = [];
         public string? FailurePath { get; init; }
         public string? FailureStage { get; init; }
         public Exception? Failure { get; init; }
@@ -216,6 +332,7 @@ public class ProjectFilePreparationTests
         public override string[] GetEntries(string directory)
         {
             Fail(directory, "enumerate");
+            EnumeratedPaths.Add(directory);
             return base.GetEntries(directory);
         }
 
@@ -223,7 +340,7 @@ public class ProjectFilePreparationTests
         {
             Fail(path, "write");
             WrittenPaths.Add(path);
-            LastWrittenAttributes = attributes;
+            WrittenAttributes[path] = attributes;
             base.SetAttributes(path, attributes & ~(FileAttributes.ReparsePoint | ExtraAttributes.GetValueOrDefault(path)));
         }
 
@@ -290,6 +407,7 @@ internal sealed class ProjectPreparationDirectory : IDisposable
         {
             System.IO.File.SetAttributes(path, FileAttributes.Directory);
         }
+        System.IO.File.SetAttributes(root, FileAttributes.Directory);
         Directory.Delete(root, true);
     }
 }

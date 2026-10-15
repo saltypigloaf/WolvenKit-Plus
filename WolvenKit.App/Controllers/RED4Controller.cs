@@ -103,7 +103,7 @@ public class RED4Controller : ObservableObject, IGameController
             // backup/cleanup and property getters that create project output directories.
             var projectDirectory = project.ProjectDirectory;
             var result = await Task.Run(() => ProjectFilePreparation.ClearReadOnly(projectDirectory));
-            _loggerService.Info($"Project preparation: cleared ReadOnly on {result.FilesChanged} of {result.FilesChecked} files in '{projectDirectory}'.");
+            _loggerService.Info($"Project preparation: cleared ReadOnly on {result.FilesChanged} of {result.FilesChecked} files and {result.DirectoriesChanged} of {result.DirectoriesChecked} directories in '{projectDirectory}'.");
             return await operation(project);
         }
         catch (Exception e)
